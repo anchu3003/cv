@@ -1,0 +1,33 @@
+% =============================================================================
+%  src/cv.tex  |  my-cv entry point (XeLaTeX)
+% -----------------------------------------------------------------------------
+%  CONTENT:   data/cv.yaml            <- the ONLY file you edit by hand
+%             python scripts/generate.py   -> rewrites src/generated/*.tex
+%             (never edit src/generated/*.tex or web/index.html directly)
+%
+%  DESIGN:    src/cvstyle.tex         (fonts, macros, spacing)
+%             src/generated/theme.tex (colours, margins, PDF metadata)
+%
+%  Build:     latexmk -xelatex cv.tex     (make pdf  /  .\build.ps1)
+%  CI build:  .github/workflows/build-cv.yml -> cv.pdf -> Release + Pages
+% =============================================================================
+% !TEX program = xelatex
+\documentclass[11pt,a4paper]{article}
+
+\input{cvstyle}
+\input{generated/theme}
+
+\begin{document}
+\pagestyle{empty}
+
+\input{generated/header}
+
+\input{generated/summary}
+\input{generated/experience}
+\input{generated/skills}
+\input{generated/projects}
+\input{generated/education}
+\input{generated/languages}
+\input{generated/certificates}
+
+\end{document}

@@ -1,0 +1,139 @@
+% =============================================================================
+%  src/cvstyle.tex  |  look & feel of the PDF (fonts + layout macros)
+% -----------------------------------------------------------------------------
+%  This file holds DESIGN ONLY.  Content lives in data/cv.yaml, and the colours
+%  / page geometry / PDF metadata are generated into src/generated/theme.tex
+%  (so the PDF palette stays identical to the web page in web/style.css).
+%
+%  Layer 1  src/cv.tex          -> document class, order of the sections
+%  Layer 2  src/cvstyle.tex     -> this file: fonts + reusable macros
+%  Layer 3  src/generated/*.tex -> AUTO-GENERATED content   (do not edit)
+% =============================================================================
+
+% ------------------------------- Fonts --------------------------------------
+% Source Serif Pro ships with TeX Live, so the local build and the CI build
+% produce exactly the same PDF (no system-font guessing / no silent fallback).
+% The web page loads "Source Serif 4" from Google Fonts: the same typeface.
+\IfFileExists{sourceserifpro.sty}{%
+  \usepackage{sourceserifpro}%
+}{%
+  % Safety net for a minimal TeX install without the package.
+  \usepackage{fontspec}%
+  \IfFontExistsTF{DejaVu Serif}{\setmainfont{DejaVu Serif}}{\setmainfont{Latin Modern Roman}}%
+}
+
+% ------------------------- Packages & spacing -------------------------------
+\usepackage[a4paper]{geometry}          % real values come from generated/theme.tex
+\usepackage{array,tabularx}
+\usepackage[table]{xcolor}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2pt}
+\renewcommand{\arraystretch}{1.05}
+\tolerance=1500
+\emergencystretch=1.5em
+\hbadness=10000
+
+% --------------------------- Helper primitives ------------------------------
+% Flexible, ragged-right column (tabularx); R = right aligned.
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+
+% XeTeX-native letter-spacing (microtype's \textls does NOT work with xetex).
+\newcommand{\cvls}[2][10]{\addfontfeatures{LetterSpace=#1}#2\addfontfeatures{LetterSpace=0}}
+
+% Bullet used between the contact items in the header.
+\newcommand{\cvsep}{\hspace{0.55em}\textcolor{cvrule}{$\bullet$}\hspace{0.55em}}
+
+% Hairline rule (under the header).
+\newcommand{\cvrule}{%
+  \par\addvspace{8pt}%
+  \noindent\textcolor{cvrule}{\rule{\textwidth}{0.8pt}}%
+  \par\addvspace{1pt}}
+
+% ------------------------------- Header -------------------------------------
+\newcommand{\cvname}[1]{{\fontsize{25}{29}\selectfont\bfseries\cvls[14]{#1}}}
+\newcommand{\cvrole}[1]{{\large\bfseries\cvls[30]{\color{cvaccent}\MakeUppercase{#1}}}}
+
+% --------------------------- Section heading ---------------------------------
+% Solid colour bar, full text width, white letter-spaced text.
+\newcommand{\cvsection}[1]{%
+  \par\addvspace{9pt}%
+  {\setlength{\fboxsep}{5pt}%
+   \noindent\colorbox{cvbar}{%
+     \makebox[\dimexpr\textwidth-2\fboxsep\relax][l]{%
+       \hspace{1pt}\textcolor{cvbartext}{\cvls[9]{\textbf{\MakeUppercase{#1}}}}}}}%
+  \par\addvspace{4.5pt}}
+
+% ------------------------------- Entries -------------------------------------
+% \cventry{title (bold accent)}{subtitle (italic muted)}{dates (right)}
+\newcommand{\cventry}[3]{%
+  \par\addvspace{4pt}\noindent
+  \begin{tabularx}{\textwidth}{@{}Y r@{}}
+    {\bfseries\color{cvaccent}#1} & {\footnotesize\color{cvmuted}#3}\\
+    \multicolumn{2}{@{}l@{}}{\itshape\color{cvmuted}#2}
+  \end{tabularx}%
+  \par\addvspace{0pt}}
+
+% Same, without a subtitle line.
+\newcommand{\cventryplain}[2]{%
+  \par\addvspace{4pt}\noindent
+  \begin{tabularx}{\textwidth}{@{}Y r@{}}
+    {\bfseries\color{cvaccent}#1} & {\footnotesize\color{cvmuted}#2}
+  \end{tabularx}%
+  \par\addvspace{0pt}}
+
+% \cvproject{name}{dates} - a project headline (slightly larger than \cventry).
+\newcommand{\cvproject}[2]{%
+  \par\addvspace{4pt}\noindent
+  \begin{tabularx}{\textwidth}{@{}Y r@{}}
+    {\large\bfseries\color{cvaccent}#1} & {\footnotesize\color{cvmuted}#2}
+  \end{tabularx}%
+  \par\addvspace{0pt}}
+\newcommand{\cvprojectgap}{\par\addvspace{4pt}}
+
+% \cvcert{name}{issuer}{meta line}
+\newcommand{\cvcert}[3]{%
+  \par\addvspace{3pt}\noindent
+  \begin{tabularx}{\textwidth}{@{}Y r@{}}
+    {\bfseries\color{cvaccent}#1} & {\footnotesize\color{cvmuted}#2}\\
+    \multicolumn{2}{@{}l@{}}{\footnotesize\color{cvmuted}#3}
+  \end{tabularx}}
+
+% \cvscore{label}{score} - languages / test scores.
+\newcommand{\cvscore}[2]{%
+  \par\addvspace{2.5pt}\noindent
+  \begin{tabularx}{\textwidth}{@{}Y r@{}}
+    #1 & {\bfseries\color{cvaccent}#2}
+  \end{tabularx}}
+
+% \cvlabel{Responsibilities} - small bold lead-in.
+\newcommand{\cvlabel}[1]{\par\addvspace{3pt}\noindent\textbf{#1}\par\addvspace{0pt}}
+
+% \cvlevel{Advanced} - skill proficiency chip (small caps, accent colour).
+\newcommand{\cvlevel}[1]{{\footnotesize\color{cvaccent}\textsc{#1}}}
+
+% \cvtech{...} - shaded "Technologies" strip.
+\newcommand{\cvtech}[1]{%
+  \par\addvspace{2.5pt}%
+  {\setlength{\fboxsep}{4pt}%
+   \noindent\colorbox{cvtechbg}{%
+     \parbox{\dimexpr\textwidth-2\fboxsep\relax}{\textbf{Technologies:} #1}}}%
+  \par\addvspace{0pt}}
+
+% Skills table columns: bold category | items (flexible) | right-aligned level.
+% They are plain column types (tabularx cannot be wrapped in \newenvironment).
+\newcolumntype{K}{>{\bfseries\raggedright\arraybackslash}p{0.26\textwidth}}
+% NOTE: an `m` (middle-aligned) column keeps the level on the text baseline;
+% a `p{...}` column with \raggedleft would sit ~0.7\baselineskip too low.
+\newcolumntype{S}{>{\raggedleft\arraybackslash\footnotesize\color{cvaccent}\scshape}%
+                   m{0.17\textwidth}}
+% Skills table: must be a macro that takes the body as its argument - tabularx
+% scans the input stream for \end{tabularx}, so it cannot live in \cvskillend.
+\newcommand{\cvskilltable}[1]{%
+  \noindent\begin{tabularx}{\textwidth}{@{}K Y S@{}}#1\end{tabularx}}
+
+% Bullets: tight and predictable.
+\setlist[itemize]{leftmargin=1.35em,topsep=1pt,itemsep=0.5pt,parsep=0pt}

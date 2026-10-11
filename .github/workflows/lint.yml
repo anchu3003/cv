@@ -1,0 +1,103 @@
+name: Validate & Lint
+
+on:
+  push:
+    branches: [ main, my-personal-cv ]
+  pull_request:
+
+jobs:
+  validate:
+    # The content is private (data/cv.yaml.age + the AGE_KEY secret) and fork
+    # pull requests cannot read repository secrets - skip those runs.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    env:
+      # `secrets` is not readable from `if:` - promote it to a job-level flag.
+      CV_DATA_PRESENT: ${{ secrets.AGE_KEY != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # See build-cv.yml: a branch with no CV source is a tooling-only branch.
+      - name: Detect the CV source
+        id: source
+        run: |
+          if [ -f data/cv.yaml.age ]; then
+            echo "encrypted=true"  >> "$GITHUB_OUTPUT"
+            echo "present=true"    >> "$GITHUB_OUTPUT"
+          elif [ -f data/cv.yaml ]; then
+            echo "encrypted=false" >> "$GITHUB_OUTPUT"
+            echo "present=true"    >> "$GITHUB_OUTPUT"
+            echo "::warning title=Plain CV source::This branch commits data/cv.yaml in clear text."
+          else
+            echo "encrypted=false" >> "$GITHUB_OUTPUT"
+            echo "present=false"   >> "$GITHUB_OUTPUT"
+            echo "::warning title=No CV source in this branch::Only the tooling checks run."
+          fi
+
+      - name: Install PyYAML + age
+        run: |
+          pip install pyyaml
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age
+
+      - name: Decrypt the CV source (data/cv.yaml.age -> data/cv.yaml)
+        if: steps.source.outputs.encrypted == 'true' && env.CV_DATA_PRESENT == 'true'
+        env:
+          AGE_KEY: ${{ secrets.AGE_KEY }}
+        run: |
+          # Accept ANY shape the secret was pasted in: the whole key file, CRLF
+          # endings, comments only, or all three lines collapsed onto one line
+          # (what a Windows copy-paste often does). Only the secret token matters.
+          printf '%s\n' "$AGE_KEY" | tr -d '\r' > "$RUNNER_TEMP/age.raw"
+          grep -Eo 'AGE-SECRET-KEY-1[0-9A-Za-z]+' "$RUNNER_TEMP/age.raw" > "$RUNNER_TEMP/age-key.txt" || true
+          found=$(wc -c < "$RUNNER_TEMP/age-key.txt")
+          echo "identity extracted from AGE_KEY: $found characters"
+          if [ "$found" -lt 60 ]; then
+            echo "::error title=AGE_KEY does not contain an age identity::AGE_KEY must contain the AGE-SECRET-KEY-1... line of your key file (~74 characters). Update the secret with the whole key file and re-run."
+            exit 1
+          fi
+          if ! age -d -i "$RUNNER_TEMP/age-key.txt" -o data/cv.yaml data/cv.yaml.age 2> "$RUNNER_TEMP/age.err"; then
+            echo "::error title=age could not decrypt data/cv.yaml.age::$(tr '\n' ' ' < "$RUNNER_TEMP/age.err")"
+            echo "The identity does not match data/cv.yaml.age: was the source encrypted to a different key?"
+            exit 1
+          fi
+          rm -f "$RUNNER_TEMP/age-key.txt" "$RUNNER_TEMP/age.err"
+
+      - name: Refuse to lint an encrypted source without its key
+        if: steps.source.outputs.encrypted == 'true' && env.CV_DATA_PRESENT != 'true'
+        run: |
+          echo "::error::AGE_KEY is not set - data/cv.yaml.age cannot be decrypted."
+          echo "Add it in: Settings -> Secrets and variables -> Actions -> New repository secret."
+          exit 1
+
+      - name: Generate sources (renderings are built here, they are not committed)
+        if: steps.source.outputs.present == 'true'
+        run: python scripts/generate.py
+
+      - name: Static checks (tooling always, content when a source is present)
+        run: python scripts/validate.py
+
+  spellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install codespell
+        run: pip install codespell
+
+      - name: Run codespell (non-blocking)
+        continue-on-error: true
+        run: codespell --skip="*.pdf,*.png,*.age,data/cv.yaml" src scripts web templates README.md
+

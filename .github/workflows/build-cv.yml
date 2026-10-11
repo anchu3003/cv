@@ -1,0 +1,229 @@
+name: Build & Publish CV
+
+on:
+  push:
+    # `main` keeps the public template in shape; the content branch is the one
+    # that builds and deploys. A branch with no CV source skips the build.
+    branches: [ main, my-personal-cv ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write     # create GitHub Releases
+  pages: write        # deploy GitHub Pages
+  id-token: write     # OIDC for Pages deployment
+
+concurrency:
+  # Per branch: a push to `main` must not cancel an in-flight deployment from
+  # the content branch (and vice versa).
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Secrets are not available to pull requests from forks, and the CV source
+    # must stay private: skip those runs entirely.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    env:
+      # `secrets` cannot be referenced inside `if:` conditions: GitHub then
+      # refuses to load the workflow ("Unrecognized named-value: 'secrets'").
+      # So the *presence* of each secret is promoted to a job-level flag - a
+      # plain "true"/"false" string - and the steps gate on `env.*`. Only these
+      # flags reach every step; the values go to the single step that needs them.
+      CV_PDF_PROTECTED: ${{ secrets.CV_PDF_PASSWORD != '' }}
+      CV_DATA_PRESENT: ${{ secrets.AGE_KEY != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # A branch that carries no CV source (neither data/cv.yaml.age nor
+      # data/cv.yaml) is a pure tooling branch, e.g. the public template: build
+      # nothing, but stay green and say why.
+      - name: Detect the CV source
+        id: source
+        run: |
+          if [ -f data/cv.yaml.age ]; then
+            echo "encrypted=true"  >> "$GITHUB_OUTPUT"
+            echo "present=true"    >> "$GITHUB_OUTPUT"
+          elif [ -f data/cv.yaml ]; then
+            echo "encrypted=false" >> "$GITHUB_OUTPUT"
+            echo "present=true"    >> "$GITHUB_OUTPUT"
+            echo "::warning title=Plain CV source::This branch commits data/cv.yaml in clear text."
+          else
+            echo "encrypted=false" >> "$GITHUB_OUTPUT"
+            echo "present=false"   >> "$GITHUB_OUTPUT"
+            echo "::warning title=No CV source in this branch::Add data/cv.yaml.age (encrypted) or data/cv.yaml (plain) - nothing to build here."
+          fi
+
+      - name: Install build tools (PyYAML + age)
+        if: steps.source.outputs.present == 'true'
+        run: |
+          python -m pip install --quiet pyyaml
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age
+          age --version
+
+      # The content lives in the repository ENCRYPTED (data/cv.yaml.age): the
+      # public repo never contains the CV. The identity key exists only in the
+      # AGE_KEY secret (and on the author's machine).
+      - name: Decrypt the CV source (data/cv.yaml.age -> data/cv.yaml)
+        if: steps.source.outputs.encrypted == 'true' && env.CV_DATA_PRESENT == 'true'
+        env:
+          AGE_KEY: ${{ secrets.AGE_KEY }}
+        run: |
+          # Accept ANY shape the secret was pasted in: the whole key file, CRLF
+          # endings, comments only, or all three lines collapsed onto one line
+          # (what a Windows copy-paste often does). Only the secret token matters.
+          printf '%s\n' "$AGE_KEY" | tr -d '\r' > "$RUNNER_TEMP/age.raw"
+          grep -Eo 'AGE-SECRET-KEY-1[0-9A-Za-z]+' "$RUNNER_TEMP/age.raw" > "$RUNNER_TEMP/age-key.txt" || true
+          found=$(wc -c < "$RUNNER_TEMP/age-key.txt")
+          echo "identity extracted from AGE_KEY: $found characters"
+          if [ "$found" -lt 60 ]; then
+            echo "::error title=AGE_KEY does not contain an age identity::AGE_KEY must contain the AGE-SECRET-KEY-1... line of your key file (~74 characters). Update the secret with the whole key file and re-run."
+            exit 1
+          fi
+          if ! age -d -i "$RUNNER_TEMP/age-key.txt" -o data/cv.yaml data/cv.yaml.age 2> "$RUNNER_TEMP/age.err"; then
+            echo "::error title=age could not decrypt data/cv.yaml.age::$(tr '\n' ' ' < "$RUNNER_TEMP/age.err")"
+            echo "The identity does not match data/cv.yaml.age: was the source encrypted to a different key?"
+            exit 1
+          fi
+          rm -f "$RUNNER_TEMP/age-key.txt" "$RUNNER_TEMP/age.err"
+          size=$(wc -c < data/cv.yaml)
+          hash=$(sha256sum data/cv.yaml | cut -c1-8)
+          echo "CV source decrypted: $size bytes, sha256 $hash"
+          echo "### CV source: \`$size bytes\`, sha256 \`$hash\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Refuse to build an encrypted source without its key
+        if: steps.source.outputs.encrypted == 'true' && env.CV_DATA_PRESENT != 'true'
+        run: |
+          echo "::error::AGE_KEY is not set - data/cv.yaml.age cannot be decrypted."
+          echo "Add it in: Settings -> Secrets and variables -> Actions -> New repository secret."
+          exit 1
+
+      - name: Generate LaTeX sections + web page from data/cv.yaml
+        if: steps.source.outputs.present == 'true'
+        run: python scripts/generate.py
+
+      - name: Compile CV (XeLaTeX)
+        if: steps.source.outputs.present == 'true'
+        uses: xu-cheng/latex-action@v4
+        with:
+          root_file: src/cv.tex
+          work_in_root_file_dir: true
+          latexmk_use_xelatex: true
+          os: debian
+          # Full TeX Live image: the Source Serif Pro font used by cvstyle.tex
+          # ships with TeX Live, so the PDF is byte-for-byte reproducible.
+          extra_system_packages: "fontconfig"
+
+      # ---- the PDF that gets published: encrypted with CV_PDF_PASSWORD ----- #
+      #  `if:` cannot read `secrets`, hence the job-level CV_PDF_PROTECTED flag
+      #  (see the top of this job).
+      - name: Encrypt the PDF with CV_PDF_PASSWORD
+        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+        env:
+          # scripts/protect_pdf.py falls back to $CV_PDF_PASSWORD, so the code is
+          # never put on the command line (where any process could read it).
+          CV_PDF_PASSWORD: ${{ secrets.CV_PDF_PASSWORD }}
+        run: |
+          python -m pip install --quiet pikepdf
+          mkdir -p dist
+          python scripts/protect_pdf.py \
+            --in src/cv.pdf \
+            --out dist/cv-protected.pdf
+          # dist/cv.pdf is what gets published (Pages + Release) under the fixed
+          # name the web page and the README link to.
+          cp dist/cv-protected.pdf dist/cv.pdf
+
+      - name: Refuse to publish an unprotected CV
+        if: env.CV_PDF_PROTECTED != 'true' && (github.ref == 'refs/heads/my-personal-cv' || startsWith(github.ref, 'refs/tags/v'))
+        run: |
+          echo "::error::CV_PDF_PASSWORD is not set - refusing to publish an unprotected CV."
+          echo "Add it in: Settings -> Secrets and variables -> Actions -> New repository secret."
+          exit 1
+
+      # Everything below publishes something, so it runs only when the code is
+      # available: without CV_PDF_PASSWORD no PDF is produced at all - the
+      # plaintext PDF never leaves the runner.
+      - name: Prepare Pages site
+        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+        run: |
+          mkdir -p _site
+          cp -r web/. _site/
+          cp dist/cv.pdf _site/cv.pdf
+          ls -la _site
+
+      - name: Encrypt the web page with the same code (StatiCrypt)
+        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+        env:
+          # StatiCrypt reads the password from this variable - it never appears
+          # in the command line, and AES-256 encryption happens here, at build
+          # time: only ciphertext is ever published.
+          STATICRYPT_PASSWORD: ${{ secrets.CV_PDF_PASSWORD }}
+        run: |
+          # StatiCrypt aborts with exit code 0 (writing nothing!) when the
+          # password is shorter than 14 characters and the interactive
+          # confirmation cannot be answered - which is always the case in CI.
+          # --short accepts the code as it is; a longer code is still much
+          # harder to brute-force on a public file, hence the warning.
+          if [ ${#STATICRYPT_PASSWORD} -lt 14 ]; then
+            echo "::warning title=Short CV_PDF_PASSWORD::The code is shorter than 14 characters - consider using a longer one."
+          fi
+          rm -f _site/index.html
+          npx --yes staticrypt@3 web/index.html -d _site --config false --short
+          # web/preview.png is page 1 of the CV - it must not be published either.
+          rm -f _site/preview.png
+
+      - name: Verify nothing of the CV is published in the clear
+        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+        run: python scripts/check_site.py _site
+
+      # Only encrypted PDFs ever leave the runner.
+      - name: Upload the encrypted PDF as an artifact
+        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cv-pdf-protected
+          path: dist/cv-protected.pdf
+
+      - name: Upload Pages artifact
+        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      # ---------------------------------------------------------------- #
+      #  Everything that gets published is protected by the CV_PDF_PASSWORD
+      #  secret: Pages serves the encrypted PDF and the StatiCrypt-encrypted
+      #  web page, and the Release carries the encrypted PDF under the fixed
+      #  name the README links to (releases/latest/download/cv.pdf).
+      #  On main/tag a missing secret fails the build (guard above) instead of
+      #  publishing a readable CV.
+      # ---------------------------------------------------------------- #
+      - name: Attach the encrypted PDF to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/cv.pdf
+          name: "CV ${{ github.ref_name }}"
+          generate_release_notes: true
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/my-personal-cv'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

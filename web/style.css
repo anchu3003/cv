@@ -1,0 +1,208 @@
+/* =============================================================================
+   web/style.css | look & feel of the web version of the CV
+   -----------------------------------------------------------------------------
+   The colours (--bar, --accent, ...), the font stack and the sizes are injected
+   from data/cv.yaml into a <style> block by scripts/generate.py - do not
+   hard-code colours here, they would drift from the PDF (src/cvstyle.tex).
+   ============================================================================= */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 26px 16px 40px;
+  background: var(--page-bg);
+  color: var(--body);
+  font-family: var(--font-family);
+  font-size: var(--base-size);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page { max-width: var(--max-width); margin: 0 auto; }
+
+.cv {
+  background: #fff;
+  padding: 34px 40px 30px;
+  box-shadow: 0 2px 16px rgba(16, 32, 56, .14);
+  border-radius: 3px;
+}
+
+/* ------------------------------- Header ---------------------------------- */
+.cv-head { text-align: center; }
+
+.cv-name {
+  margin: 0;
+  font-size: 2.05rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  line-height: 1.15;
+}
+
+.cv-role {
+  margin: .2rem 0 .85rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.cv-contact {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: .4rem;
+  row-gap: .1rem;
+  margin: 0;
+  padding-bottom: 14px;
+  font-size: .95rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.cv-contact .contact-item { white-space: nowrap; }
+.cv-contact > .contact-item + .contact-item::before {
+  content: "•";
+  color: var(--rule);
+  margin-right: .45rem;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ------------------------- Section headings ------------------------------ */
+.sec { margin-top: 1.35rem; }
+
+.sec-title {
+  margin: 0 0 .6rem;
+  padding: .28rem .6rem;
+  background: var(--bar);
+  color: var(--bar-fg);
+  font-size: .93rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  line-height: 1.35;
+}
+
+/* --------------------------- Entry rows ---------------------------------- */
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.entry-title, .project-name, .cert-name {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.project-name { margin: .15rem 0 0; font-size: 1.12rem; }
+
+.dates, .cert-issuer, .skill-level {
+  color: var(--muted);
+  font-size: .83rem;
+  white-space: nowrap;
+}
+
+/* Skill levels are small-caps in the PDF; the issuer keeps its normal case. */
+.skill-level {
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.entry { margin-top: .55rem; }
+.entry-sub {
+  margin: .1rem 0 0;
+  font-style: italic;
+  color: var(--muted);
+  font-size: .93rem;
+}
+
+.project { margin-top: .85rem; }
+.cert { margin-top: .6rem; }
+.cert-meta { margin: .05rem 0 0; font-size: .82rem; color: var(--muted); }
+
+/* ------------------------------- Skills ---------------------------------- */
+.skill {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 24%) 1fr auto;
+  column-gap: 1rem;
+  padding: .1rem 0;
+}
+.skill-name { font-weight: 700; }
+.skill-items { overflow-wrap: anywhere; }
+
+/* --------------------------- Languages ----------------------------------- */
+.score {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .1rem 0;
+}
+.score-value { font-weight: 700; color: var(--accent); }
+
+/* ---------------------------- Text bits ---------------------------------- */
+p { margin: .4rem 0; }
+.label { font-weight: 700; }
+
+.tech {
+  background: var(--tech-bg);
+  padding: .35rem .55rem;
+  margin-top: .5rem;
+}
+
+ul { margin: .3rem 0; padding-left: 1.35rem; }
+li { margin: .08rem 0; }
+
+/* ------------------------------ Chrome ----------------------------------- */
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+  margin-bottom: .85rem;
+}
+
+.btn {
+  display: inline-block;
+  padding: .45rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  background: var(--accent);
+  color: #fff;
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:hover { filter: brightness(1.08); text-decoration: none; }
+
+.site-foot {
+  margin-top: 1.1rem;
+  color: var(--muted);
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: .74rem;
+  text-align: center;
+}
+.site-foot code { font-size: .95em; }
+
+/* ------------------------------ Mobile ----------------------------------- */
+@media (max-width: 640px) {
+  .cv { padding: 22px 18px; }
+  .cv-name { font-size: 1.6rem; }
+  .cv-role { letter-spacing: .12em; font-size: .95rem; }
+  .skill { grid-template-columns: 1fr; row-gap: .1rem; }
+  .skill-level { display: none; }
+  .toolbar { justify-content: center; }
+}
+
+/* ------------------------------ Print ------------------------------------ */
+@media print {
+  body { background: #fff; padding: 0; font-size: 10.5pt; }
+  .cv { box-shadow: none; padding: 0; max-width: none; }
+  .toolbar, .site-foot { display: none; }
+  .sec { break-inside: avoid; }
+  a { color: inherit; }
+}

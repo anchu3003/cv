@@ -1,0 +1,62 @@
+# --- LaTeX build artefacts ---
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.synctex.gz
+*.synctex(busy)
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.xdv
+*.nav
+*.snm
+*.vrb
+
+# --- Build output (produced by CI / build helpers, never committed) ---
+dist/
+src/cv.pdf
+_site/
+.staticrypt.json
+
+# --- CV source (Phương án D) ------------------------------------------------
+# data/cv.yaml holds ALL the content in clear text: it stays on your machine and
+# is never committed. The repo carries the age-encrypted copy instead.
+data/cv.yaml
+# never commit an age identity (private) key
+*.age-key
+age-key*.txt
+key.txt
+# local scratch file used to hold secret values while setting them in GitHub
+.secrets
+# local instructions for AI agents (never published)
+Agent.md
+AGENTS.md
+
+# --- Renderings (built in CI from the decrypted source, never committed) -----
+# These are the CV in clear text as well, so they are generated during the
+# build:  src/generated/*.tex  and  web/index.html  (+ web/preview.png).
+src/generated/
+web/index.html
+web/preview.png
+
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- Source documents (legacy Word CV; content now lives in data/cv.yaml) ---
+*.docx
+*.doc
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+prompt.txt

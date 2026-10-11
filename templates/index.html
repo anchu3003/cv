@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{PAGE_TITLE}}</title>
+  <meta name="description" content="{{DESCRIPTION}}" />
+  <meta name="author" content="{{NAME}}" />
+  <meta name="theme-color" content="{{BAR_COLOR}}" />
+{{ROBOTS}}
+
+  <!-- Open Graph / social preview -->
+  <meta property="og:type" content="profile" />
+  <meta property="og:title" content="{{NAME}} — {{ROLE}}" />
+  <meta property="og:description" content="{{DESCRIPTION}}" />
+  <meta property="og:url" content="{{SITE_URL}}" />
+  <meta property="og:image" content="{{SITE_URL}}{{PREVIEW_IMAGE}}" />
+
+  <!-- The PDF version of the same content -->
+  <link rel="alternate" type="application/pdf" href="cv.pdf" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="{{FONT_URL}}" rel="stylesheet" />
+
+  <!-- Palette + font + sizes come from data/cv.yaml (same values as the PDF) -->
+  <style>
+{{THEME_CSS}}
+  </style>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Structured data: helps recruiters' tools and search engines -->
+{{JSONLD}}
+</head>
+<body>
+  <div class="page">
+    <div class="toolbar">
+      <a class="btn" href="cv.pdf" download="{{PDF_DOWNLOAD_NAME}}">Download PDF</a>
+      <a class="btn ghost" href="cv.pdf" target="_blank" rel="noopener">Open PDF</a>
+    </div>
+
+    <article class="cv">
+{{BODY}}
+    </article>
+
+    <footer class="site-foot">
+      <p><a href="{{PDF_URL}}">Permanent PDF link</a> · generated from
+        <code>data/cv.yaml</code> — this page and the PDF are built from the same
+        source by GitHub Actions.</p>
+    </footer>
+  </div>
+</body>
+</html>
