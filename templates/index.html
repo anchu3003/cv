@@ -16,9 +16,6 @@
   <meta property="og:url" content="{{SITE_URL}}" />
   <meta property="og:image" content="{{SITE_URL}}{{PREVIEW_IMAGE}}" />
 
-  <!-- The PDF version of the same content -->
-  <link rel="alternate" type="application/pdf" href="cv.pdf" />
-
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="{{FONT_URL}}" rel="stylesheet" />
@@ -34,9 +31,11 @@
 </head>
 <body>
   <div class="page">
+    <!-- The buttons are wired to the PDF *inside* this page: no /cv.pdf URL exists
+         (see the payload at the bottom of the body). -->
     <div class="toolbar">
-      <a class="btn" href="cv.pdf" download="{{PDF_DOWNLOAD_NAME}}">Download PDF</a>
-      <a class="btn ghost" href="cv.pdf" target="_blank" rel="noopener">Open PDF</a>
+      <a class="btn" id="pdf-download" href="#" download="{{PDF_DOWNLOAD_NAME}}">Download PDF</a>
+      <a class="btn ghost" id="pdf-open" href="#" target="_blank" rel="noopener">Open PDF</a>
     </div>
 
     <article class="cv">
@@ -44,10 +43,34 @@
     </article>
 
     <footer class="site-foot">
-      <p><a href="{{PDF_URL}}">Permanent PDF link</a> · generated from
-        <code>data/cv.yaml</code> — this page and the PDF are built from the same
-        source by GitHub Actions.</p>
+      <p>Generated from <code>data/cv.yaml</code> — this page and the PDF inside it
+        are built from the same source by GitHub Actions.</p>
     </footer>
   </div>
+
+  <!-- The PDF travels inside this page: scripts/embed_pdf.py puts the base64 bytes
+       into the slot below at build time, and StatiCrypt encrypts the whole page -
+       so there is no PDF URL to fetch, and the code must be typed first. The PDF
+       itself is not password protected: it opens normally once it is saved. -->
+  <script id="cv-pdf-data" type="application/pdf;base64"></script>
+  <script>
+    (function () {
+      var slot = document.getElementById("cv-pdf-data");
+      var payload = slot ? slot.textContent.replace(/\s+/g, "") : "";
+      var download = document.getElementById("pdf-download");
+      var open = document.getElementById("pdf-open");
+      if (!payload) {           // a plain `generate.py` build: no PDF embedded yet
+        if (download) download.remove();
+        if (open) open.remove();
+        return;
+      }
+      var binary = atob(payload);
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      if (download) download.href = url;
+      if (open) open.href = url;
+    })();
+  </script>
 </body>
 </html>

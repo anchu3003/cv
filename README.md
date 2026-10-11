@@ -1,8 +1,8 @@
 # CV as Code
 
 > One YAML file in — a consistent LaTeX PDF and a matching web page out, built and
-> published by GitHub Actions, with **the source and both outputs encrypted** so a
-> public repository can still hold a CV.
+> published by GitHub Actions, with **the source encrypted** and **the web page
+> behind a code** so a public repository can still hold a CV.
 
 This repository is **tooling**: it contains no personal data. Your content lives in
 `data/cv.yaml`, and the repository stores it **encrypted** (`data/cv.yaml.age`,
@@ -11,13 +11,15 @@ is ever committed.
 
 | You get | Built by | Published to |
 | --- | --- | --- |
-| `cv.pdf` (LaTeX / XeLaTeX) | GitHub Actions | GitHub Releases **and** Pages |
-| `web/index.html` + `web/style.css` | GitHub Actions | GitHub Pages |
+| `cv.pdf` (LaTeX / XeLaTeX) | GitHub Actions | **inside** the page — it has no URL of its own |
+| `web/index.html` + `web/style.css` | GitHub Actions | GitHub Pages, page encrypted with StatiCrypt |
 
 Both renderings are produced from the same source, so the palette, fonts and
-margins can never drift apart. One code (`CV_PDF_PASSWORD`) optionally **encrypts
-the PDF** (any reader asks for it) and **the web page** (StatiCrypt asks before
-showing anything) — see [Keeping it private](#-keeping-it-private).
+margins can never drift apart. One code (`CV_PDF_PASSWORD`) **encrypts the web
+page**: StatiCrypt asks for it before showing anything, and the PDF travels
+*inside* that page — it is the only copy that exists, so there is no `/cv.pdf`
+URL to fetch and the PDF itself needs no password. See
+[Keeping it private](#-keeping-it-private).
 
 **Requirements**
 
@@ -67,21 +69,22 @@ showing anything) — see [Keeping it private](#-keeping-it-private).
 
 5. **Turn on the CI in your repository:**
    * **Settings → Secrets and variables → Actions**: add `AGE_KEY` (the content of
-     your age identity file) and `CV_PDF_PASSWORD` (the code you hand out, 14+
-     characters).
+     your age identity file) and `CV_PDF_PASSWORD` (the code you hand out for the
+     web page, 14+ characters).
    * **Settings → Pages → Build and deployment → Source = `GitHub Actions`**.
-   * **Settings → Actions → General → Workflow permissions = Read and write**.
+   * **Settings → Actions → General → Workflow permissions = Read and write**
+     (the defaults are fine too: nothing is published outside Pages).
 
-6. **Push, then tag** to create the first Release:
+6. **Push** — the workflow builds and deploys:
 
    ```bash
    git add -A && git commit -m "my CV" && git push
-   git tag v1 && git push origin v1
    ```
 
-Your site is then at `https://YOUR-USER.github.io/YOUR-REPO/` and the permanent PDF
-at `https://github.com/YOUR-USER/YOUR-REPO/releases/latest/download/cv.pdf`.
-Optional badge for the top of your README:
+Your site is then at `https://YOUR-USER.github.io/YOUR-REPO/`: type the code and the
+page shows, with the PDF downloadable from the two buttons in the toolbar (the PDF
+lives inside that page — there is no separate PDF URL, no Release asset and no
+workflow artifact to fetch). Optional badge for the top of your README:
 
 ```markdown
 [![build](https://github.com/YOUR-USER/YOUR-REPO/actions/workflows/build-cv.yml/badge.svg)](https://github.com/YOUR-USER/YOUR-REPO/actions/workflows/build-cv.yml)
@@ -104,14 +107,9 @@ git add -A && git commit -m "content: ..." && git push
 ```
 
 On that push CI: decrypts `data/cv.yaml.age` (`AGE_KEY`) → regenerates the LaTeX and
-the HTML → compiles the PDF → encrypts it (`CV_PDF_PASSWORD`) → encrypts the web
-page with StatiCrypt → verifies that nothing readable survives → deploys to Pages.
-A GitHub Release (and the permanent `releases/latest/download/cv.pdf` link) is
-updated when you push a tag:
-
-```bash
-git tag v2 && git push origin v2
-```
+the HTML → compiles the PDF → embeds it in the page → encrypts the page with
+StatiCrypt (`CV_PDF_PASSWORD`) → verifies that nothing readable survives → deploys
+to Pages. Nothing else is published: no Release, no artifact, no `cv.pdf` URL.
 
 `scripts/validate.py` guards the most likely mistake: it decrypts
 `data/cv.yaml.age` with your local key and compares it with `data/cv.yaml`, so a
@@ -138,13 +136,14 @@ previous version.
 │  └─ preview.png              local OG preview image (make preview, not published)
 ├─ scripts/
 │  ├─ generate.py              data/cv.yaml -> LaTeX + HTML
+│  ├─ embed_pdf.py             PDF -> base64 inside the page (no PDF URL)
 │  ├─ validate.py              static checks + "did you forget to encrypt?"
 │  ├─ crypt.ps1                encrypt / decrypt the source (Windows)
-│  ├─ protect_pdf.py           AES-256 encrypt the PDF (needs CV_PDF_PASSWORD)
+│  ├─ protect_pdf.py           optional: AES-256-encrypt a PDF for a hand-out
 │  ├─ check_site.py            fails the build if _site still has plain text
 │  └─ preview.py               first PDF page -> web/preview.png
 ├─ .github/workflows/
-│  ├─ build-cv.yml             decrypt -> generate -> compile -> encrypt -> Release + Pages
+│  ├─ build-cv.yml             decrypt -> generate -> compile -> embed + encrypt page -> Pages
 │  └─ lint.yml                 decrypt -> generate + validate + spell check
 ├─ Makefile / build.ps1        local helpers (make encrypt / make decrypt)
 └─ LICENSE
@@ -170,18 +169,23 @@ identity key, and local notes such as `Agent.md` or `.secrets`.
                                cv.yaml is not in BOTH renderings, or if the
                                encrypted copy is out of date
                     │
-        ┌───────────┴────────────┐   encrypt with CV_PDF_PASSWORD
-   protect_pdf.py          StatiCrypt (CI)
-        │                        │
-   dist/cv.pdf ────────► _site/cv.pdf + _site/index.html ──► GitHub Pages
-        └───────────────────────────────────────────────────► Release
+        scripts/embed_pdf.py → src/cv.pdf becomes base64 *inside* the page,
+                               so no /cv.pdf exists to fetch
                     │
-        scripts/check_site.py → fails if anything published still contains the CV
-                                in clear text (every PDF must need a password)
+        StatiCrypt (CI)      → encrypts that page with CV_PDF_PASSWORD
+                    │
+                 _site/   (one encrypted index.html + style.css)
+                    └──► GitHub Pages
+                    │
+        scripts/check_site.py → fails if the page is not StatiCrypt-encrypted, if a
+                                separate PDF turned up, or if any published file
+                                carries the CV in the clear
 ```
 
-Only ciphertext ever leaves the runner: the plaintext PDF is compiled there and
-never uploaded, published or attached.
+The repository only ever carries ciphertext, and GitHub Pages serves exactly one
+encrypted page. The PDF is inside that page, so it is reachable only after the code
+is typed — while the PDF *file* itself carries no password and opens in any reader
+once it has been downloaded.
 
 ## ✍️ Editing the content (`data/cv.yaml`)
 
@@ -245,8 +249,9 @@ value in `web/style.css` so the two keep matching.
 make gen          # data/cv.yaml -> src/generated/*.tex + web/index.html
 make check        # validate.py + generate.py --check
 make pdf          # gen + XeLaTeX  -> src/cv.pdf + dist/cv.pdf
+make site         # + _site/ : the page with the PDF embedded (what CI encrypts)
 make preview      # gen + pdf + web/preview.png        (needs: pip install pypdfium2)
-make protected PASSCODE="the-code"                     # dist/cv-protected.pdf
+make protected PASSCODE="the-code"                     # optional: dist/cv-protected.pdf
 make encrypt      # data/cv.yaml -> data/cv.yaml.age   (commit this one)
 make decrypt      # data/cv.yaml.age -> data/cv.yaml
 make clean
@@ -256,6 +261,7 @@ Windows equivalents:
 
 ```powershell
 .\build.ps1
+.\build.ps1 -Site
 .\build.ps1 -Preview
 .\build.ps1 -Protected "the-code"
 
@@ -277,10 +283,23 @@ rather than the *page*:
 | --- | --- | --- |
 | the repository | `data/cv.yaml.age` — your content, encrypted with [age](https://age-encryption.org) | X25519 + ChaCha20-Poly1305; the key never enters git |
 | the git history | the same ciphertext (the clear file and every rendering are gitignored) | nothing readable |
-| GitHub Pages | StatiCrypt-encrypted page + AES-256 encrypted PDF | the code |
-| GitHub Releases | the encrypted PDF (`cv.pdf`) | the code |
-| workflow artifacts | only the encrypted PDF (`cv-pdf-protected`) | the code |
+| GitHub Pages | one **StatiCrypt-encrypted page** that *contains* the PDF (base64) | the code — and the PDF has no URL of its own |
+| Releases / artifacts | nothing — the workflow creates neither | — |
 | CI logs | fingerprints (`len=… sha256=…`), never your text | by design — the logs of a public repository are world-readable |
+
+**The PDF has no URL.** It is embedded in the page (`scripts/embed_pdf.py`) and
+encrypted together with it, so a visitor must type `CV_PDF_PASSWORD` before the
+download buttons work; `releases/latest/download/cv.pdf` and `…/cv.pdf` do not
+exist. The PDF *file* itself carries no password: after the download it opens in any
+reader, so recruiters never have to type anything twice.
+
+That also means the file only reaches someone you gave the code (or the page) to.
+If you would rather hand out a *revocable* file — one code for one recruiter —
+encrypt a copy locally and send that instead:
+
+```bash
+make protected PASSCODE="the-code"      # dist/cv-protected.pdf — asks for the code
+```
 
 **The identity key is the single point of failure.** Keep a copy in a password
 manager: lose it and the committed ciphertext can never be decrypted; leak it and
@@ -294,11 +313,11 @@ make encrypt AGE_KEY_FILE=~/.age/new-key.txt     # re-encrypt the source with th
 
 **Still public:** `web/style.css` (CSS only, no content) and the fact that the
 repository exists. The encrypted page reveals nothing about you — not even its
-title — until the code is typed. That code is shared with everyone you hand it to,
-so rotate it per employer and never reuse a password you use elsewhere. If you want
-a real gatekeeper instead of client-side encryption, put the site behind
-**Cloudflare Access** (free for up to 50 users): it checks who is asking before any
-content is served.
+title — until the code is typed, and the PDF stays sealed inside it. That code is
+shared with everyone you hand it to, so rotate it per employer and never reuse a
+password you use elsewhere. If you want a real gatekeeper instead of client-side
+encryption, put the site behind **Cloudflare Access** (free for up to 50 users): it
+checks who is asking before any content is served.
 
 ## ✅ How the rules are enforced
 
@@ -306,8 +325,8 @@ content is served.
 | --- | --- |
 | `scripts/validate.py` — **age drift check** | you edited `data/cv.yaml` and forgot to re-encrypt it (the committed `.age` no longer matches) |
 | `scripts/validate.py` — sync check | a value from the YAML missing from the LaTeX *or* the HTML; `\input` targets that do not exist; unbalanced braces / `\begin`…`\end`; a generated section `src/cv.tex` forgot to include; broken HTML tag nesting; leftover `{{TEMPLATE}}` tokens; invalid workflow YAML |
-| `scripts/check_site.py` | anything about to be published that still contains the CV in clear text: the page must carry the StatiCrypt marker and **every PDF must require a password** |
-| build guards (`main` and tags) | a missing `AGE_KEY` or `CV_PDF_PASSWORD`: the build fails instead of publishing a readable CV |
+| `scripts/check_site.py` | anything about to be published that still contains the CV in clear text: the page must carry the StatiCrypt marker, no `*.pdf` file may sit next to it (the PDF is embedded in the page), and no published file may contain a `cv.yaml` string in its raw bytes |
+| build guards (content branch) | a missing `AGE_KEY` or `CV_PDF_PASSWORD`: the build fails instead of publishing a readable page |
 
 `validate.py` and `check_site.py` print **fingerprints** (`len=… sha256=…`) instead
 of the offending text, because the logs of a public repository are world-readable.
@@ -316,20 +335,21 @@ strings.
 
 ## 🚀 CI/CD
 
-- **`build-cv.yml`** — on pushes to the branches listed in the workflow, on tags
-  and on manual runs (pull requests from forks are skipped: they cannot read
-  repository secrets). A branch that carries no CV source skips the build with a
-  warning, so a tooling-only branch (e.g. the public template) stays green:
+- **`build-cv.yml`** — on pushes to the branches listed in the workflow and on
+  manual runs (pull requests from forks are skipped: they cannot read repository
+  secrets). A branch that carries no CV source skips the build with a warning, so a
+  tooling-only branch (e.g. the public template) stays green:
   install `age` → **decrypt `data/cv.yaml.age`** (`AGE_KEY`) → `generate.py` →
-  XeLaTeX compile → **encrypt the PDF** (`CV_PDF_PASSWORD`) → build `_site/`
-  (encrypted `cv.pdf` + **StatiCrypt-encrypted page**) → `check_site.py` → upload
-  the encrypted artifact → upload the Pages artifact → (on a tag) attach the
-  encrypted `cv.pdf` to the Release → deploy to Pages.
+  XeLaTeX compile → **embed the PDF in the page** → build `_site/` →
+  **encrypt that page** with StatiCrypt (`CV_PDF_PASSWORD`) → `check_site.py` →
+  upload the Pages artifact → deploy. Nothing else is published: no Release, no
+  artifact, no `cv.pdf` URL.
 - **`lint.yml`** — decrypt + generate + `validate.py`, plus a non-blocking
   codespell run.
-- **Releasing:** `git tag v2026.11 && git push origin v2026.11` creates a Release
-  with the **encrypted** `cv.pdf` attached (that is what
-  `releases/latest/download/cv.pdf` serves) and auto-generated notes.
+- **Releasing:** there is nothing to release. The site is always the latest build,
+  and since no GitHub Release is created any more,
+  `releases/latest/download/cv.pdf` is gone — **delete the Releases an older setup
+  created** (Releases → the release → Delete) so the old link stops resolving too.
 
 One-time repository setup:
 
@@ -344,24 +364,27 @@ One-time repository setup:
    tags** → add that branch (or choose *All branches*). Without this the build
    succeeds but the deploy job fails with *“Branch … is not allowed to deploy to
    github-pages due to environment protection rules.”*
-3. **Settings → Actions → General → Workflow permissions:** read/write — the
-   Release step needs it.
+3. **Settings → Actions → General → Workflow permissions:** the default *read*
+   permission is enough — nothing is published outside Pages any more.
 4. **Settings → Secrets and variables → Actions:**
    * `AGE_KEY` = the whole content of your age identity file (`~/.age/cv-key.txt`).
      The workflow extracts the key itself, so a CRLF or single-line paste is fine —
      what it cannot do is guess a key that is not there.
-   * `CV_PDF_PASSWORD` = the code you hand out, **14+ characters** recommended: the
-     encrypted page is public, so a short code can be brute-forced offline.
+   * `CV_PDF_PASSWORD` = the code you hand out for the **web page**, **14+
+     characters** recommended: it is the only thing standing between a stranger and
+     the page *and* the PDF inside it, so a short code can be brute-forced offline.
      (StatiCrypt warns below 14 characters; the build passes `--short` and keeps
      going.)
-5. Push a tag once to create the first Release.
+5. Delete any **Releases** older runs created (Settings → … → Releases): they still
+   serve `releases/latest/download/cv.pdf`, and this setup no longer wants a public
+   PDF link.
 6. Optional: keep **Settings → Actions → General → Artifact and log retention**
-   short — every run recreates the (encrypted) artifacts anyway.
+   short — every run recreates the Pages artifact anyway.
 
 If a step fails, the guards print the reason as a **check annotation** (Actions →
 the run → Annotations), so you rarely need the raw log: `AGE_KEY is not set`,
 `age could not decrypt data/cv.yaml.age`, `AGE_KEY does not contain an age
-identity`, `Refuse to publish an unprotected CV`, and so on.
+identity`, `Refuse to publish an unprotected CV page`, and so on.
 
 ## ⚠️ Note on layout vs ATS
 
@@ -374,6 +397,10 @@ plain single-column document.
   ATS/parsers handle it.
 - ⚠️ If an application form demands plain text, copy it from the web page or build a
   single-column variant (a few lines in `src/cvstyle.tex`).
+- ⚠️ There is no public PDF URL any more (the file is inside the code-protected
+  page), so a form cannot fetch it: unlock your page, download the PDF, upload that
+  file. That is the point — the PDF is only reachable by someone who was given the
+  code.
 - Tip: the name the browser saves the file as comes from `meta.pdf_download_name`
   (e.g. `Firstname_Lastname_CV.pdf`), so set it once instead of renaming by hand.
 

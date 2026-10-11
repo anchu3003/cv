@@ -4,14 +4,14 @@ on:
   push:
     # `main` keeps the public template in shape; the content branch is the one
     # that builds and deploys. A branch with no CV source skips the build.
+    # Tags are not used: nothing is published outside GitHub Pages.
     branches: [ main, my-personal-cv ]
-    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
 
 permissions:
-  contents: write     # create GitHub Releases
+  contents: read      # checkout only - no Release is created any more
   pages: write        # deploy GitHub Pages
   id-token: write     # OIDC for Pages deployment
 
@@ -33,7 +33,9 @@ jobs:
       # So the *presence* of each secret is promoted to a job-level flag - a
       # plain "true"/"false" string - and the steps gate on `env.*`. Only these
       # flags reach every step; the values go to the single step that needs them.
-      CV_PDF_PROTECTED: ${{ secrets.CV_PDF_PASSWORD != '' }}
+      # CV_PDF_PASSWORD protects the *web page* only (StatiCrypt): the PDF is
+      # published as XeLaTeX produced it, without a password.
+      CV_PAGE_PROTECTED: ${{ secrets.CV_PDF_PASSWORD != '' }}
       CV_DATA_PRESENT: ${{ secrets.AGE_KEY != '' }}
     steps:
       - name: Checkout
@@ -124,45 +126,44 @@ jobs:
           # ships with TeX Live, so the PDF is byte-for-byte reproducible.
           extra_system_packages: "fontconfig"
 
-      # ---- the PDF that gets published: encrypted with CV_PDF_PASSWORD ----- #
-      #  `if:` cannot read `secrets`, hence the job-level CV_PDF_PROTECTED flag
-      #  (see the top of this job).
-      - name: Encrypt the PDF with CV_PDF_PASSWORD
-        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
-        env:
-          # scripts/protect_pdf.py falls back to $CV_PDF_PASSWORD, so the code is
-          # never put on the command line (where any process could read it).
-          CV_PDF_PASSWORD: ${{ secrets.CV_PDF_PASSWORD }}
+      # ---- the PDF has no URL: it is embedded in the page ---------------- #
+      #  `releases/latest/download/cv.pdf` is gone (no Release is created) and no
+      #  `cv.pdf` is published either: scripts/embed_pdf.py puts the compiled PDF
+      #  *inside* the page as base64, and StatiCrypt then encrypts the whole
+      #  document - so a visitor must type CV_PDF_PASSWORD before the PDF can be
+      #  downloaded. The PDF file itself carries no password. For a separate,
+      #  password-protected copy to hand out, run scripts/protect_pdf.py locally.
+      - name: Embed the PDF in the page (base64)
+        if: steps.source.outputs.present == 'true' && env.CV_PAGE_PROTECTED == 'true'
         run: |
-          python -m pip install --quiet pikepdf
-          mkdir -p dist
-          python scripts/protect_pdf.py \
-            --in src/cv.pdf \
-            --out dist/cv-protected.pdf
-          # dist/cv.pdf is what gets published (Pages + Release) under the fixed
-          # name the web page and the README link to.
-          cp dist/cv-protected.pdf dist/cv.pdf
+          mkdir -p "$RUNNER_TEMP/page"
+          python scripts/embed_pdf.py \
+            --in web/index.html \
+            --pdf src/cv.pdf \
+            --out "$RUNNER_TEMP/page/index.html"
 
-      - name: Refuse to publish an unprotected CV
-        if: env.CV_PDF_PROTECTED != 'true' && (github.ref == 'refs/heads/my-personal-cv' || startsWith(github.ref, 'refs/tags/v'))
+      - name: Refuse to publish an unprotected CV page
+        if: env.CV_PAGE_PROTECTED != 'true' && github.ref == 'refs/heads/my-personal-cv'
         run: |
-          echo "::error::CV_PDF_PASSWORD is not set - refusing to publish an unprotected CV."
+          echo "::error::CV_PDF_PASSWORD is not set - refusing to publish the CV page in clear text."
           echo "Add it in: Settings -> Secrets and variables -> Actions -> New repository secret."
           exit 1
 
       # Everything below publishes something, so it runs only when the code is
-      # available: without CV_PDF_PASSWORD no PDF is produced at all - the
-      # plaintext PDF never leaves the runner.
+      # available: without CV_PDF_PASSWORD the web page would be served readable.
       - name: Prepare Pages site
-        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+        if: steps.source.outputs.present == 'true' && env.CV_PAGE_PROTECTED == 'true'
         run: |
           mkdir -p _site
           cp -r web/. _site/
-          cp dist/cv.pdf _site/cv.pdf
+          # The clear page, the OG image and any stray PDF must never be published:
+          # the only page in _site is the encrypted one StatiCrypt writes below.
+          rm -f _site/index.html _site/preview.png _site/cv.pdf
           ls -la _site
 
-      - name: Encrypt the web page with the same code (StatiCrypt)
-        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+      # ---- the only published file the code unlocks ----------------------- #
+      - name: Encrypt the web page with the code (StatiCrypt)
+        if: steps.source.outputs.present == 'true' && env.CV_PAGE_PROTECTED == 'true'
         env:
           # StatiCrypt reads the password from this variable - it never appears
           # in the command line, and AES-256 encryption happens here, at build
@@ -177,44 +178,26 @@ jobs:
           if [ ${#STATICRYPT_PASSWORD} -lt 14 ]; then
             echo "::warning title=Short CV_PDF_PASSWORD::The code is shorter than 14 characters - consider using a longer one."
           fi
-          rm -f _site/index.html
-          npx --yes staticrypt@3 web/index.html -d _site --config false --short
-          # web/preview.png is page 1 of the CV - it must not be published either.
-          rm -f _site/preview.png
+          # The input file must be named index.html: StatiCrypt writes it back to
+          # the output directory under the same name.
+          npx --yes staticrypt@3 "$RUNNER_TEMP/page/index.html" -d _site --config false --short
 
       - name: Verify nothing of the CV is published in the clear
-        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+        if: steps.source.outputs.present == 'true' && env.CV_PAGE_PROTECTED == 'true'
         run: python scripts/check_site.py _site
 
-      # Only encrypted PDFs ever leave the runner.
-      - name: Upload the encrypted PDF as an artifact
-        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: cv-pdf-protected
-          path: dist/cv-protected.pdf
-
+      # ---------------------------------------------------------------- #
+      #  Publishing: GitHub Pages gets exactly one page - the encrypted one, with
+      #  the PDF inside it. Nothing else leaves the runner (no Release, no
+      #  artifact), so the CV is only reachable after the code is typed. On the
+      #  content branch a missing secret fails the build (guard above) instead of
+      #  publishing a readable page.
+      # ---------------------------------------------------------------- #
       - name: Upload Pages artifact
-        if: steps.source.outputs.present == 'true' && env.CV_PDF_PROTECTED == 'true'
+        if: steps.source.outputs.present == 'true' && env.CV_PAGE_PROTECTED == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-
-      # ---------------------------------------------------------------- #
-      #  Everything that gets published is protected by the CV_PDF_PASSWORD
-      #  secret: Pages serves the encrypted PDF and the StatiCrypt-encrypted
-      #  web page, and the Release carries the encrypted PDF under the fixed
-      #  name the README links to (releases/latest/download/cv.pdf).
-      #  On main/tag a missing secret fails the build (guard above) instead of
-      #  publishing a readable CV.
-      # ---------------------------------------------------------------- #
-      - name: Attach the encrypted PDF to the GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/cv.pdf
-          name: "CV ${{ github.ref_name }}"
-          generate_release_notes: true
 
   deploy:
     needs: build

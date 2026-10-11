@@ -174,8 +174,12 @@ def walk(node, prefix: str = ""):
 
 # Values that only exist in the web page / only in the PDF metadata.
 WEB_ONLY = {"meta.site_url", "meta.page_title", "meta.description",
-            "meta.preview_image", "meta.pdf_url", "meta.pdf_download_name"}
+            "meta.preview_image", "meta.pdf_download_name"}
 PDF_ONLY = {"meta.pdf_title", "meta.pdf_keywords"}
+# Keys nothing renders any more: the PDF now travels *inside* the page (embedded
+# by scripts/embed_pdf.py) instead of being linked, so a leftover `meta.pdf_url`
+# in an older data/cv.yaml is skipped instead of reported as a sync error.
+NOT_RENDERED = {"meta.pdf_url"}
 # Design tokens live in both files but in different formats - skip them.
 SKIP_PREFIXES = ("theme", "fonts", "layout")
 
@@ -189,7 +193,7 @@ if os.path.isfile(html_path):
 
 checked = 0
 for path, token in walk(data or {}):
-    if path.split(".")[0] in SKIP_PREFIXES:
+    if path.split(".")[0] in SKIP_PREFIXES or path in NOT_RENDERED:
         continue
     needle = normalise(token)
     if not needle:

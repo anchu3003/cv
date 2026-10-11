@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-r"""Password-protect the compiled CV - real PDF encryption, not a JS overlay.
+r"""Password-protect a compiled PDF - real PDF encryption, not a JS overlay.
+
+OPTIONAL, LOCAL TOOL. The published site does *not* work this way: CI embeds the
+plain PDF inside the web page and encrypts the page with StatiCrypt
+(`CV_PDF_PASSWORD`), so the code is asked for before the PDF can be downloaded
+and the PDF itself needs no password. Use this script when you want a *separate*
+file that asks for a code - e.g. to hand one recruiter a copy you can revoke.
 
 The generated file asks for the password when it is opened in any PDF reader
-(Acrobat, Chrome, Preview, ...), so you can hand recruiters a PDF plus a short
-code and nobody else can read it.
+(Acrobat, Chrome, Preview, ...), so you can hand out a PDF plus a short code and
+nobody else can read it.
 
 Usage
 -----
     python scripts/protect_pdf.py --password "my-code"
     python scripts/protect_pdf.py --password "my-code" --in src/cv.pdf --out dist/cv-protected.pdf
-    CV_PDF_PASSWORD=my-code python scripts/protect_pdf.py     # CI / script friendly
+    CV_PDF_PASSWORD=my-code python scripts/protect_pdf.py     # script friendly
 
 Backends (the first one available is used)
   1. qpdf     native binary:  qpdf --encrypt PW PW 256 ...

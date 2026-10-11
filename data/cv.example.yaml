@@ -9,6 +9,10 @@
 #
 #  `data/cv.yaml` is gitignored on purpose: the repository keeps your content
 #  encrypted (data/cv.yaml.age) instead - see README.md > "Keeping it private".
+#
+#  There is no `pdf_url`: the PDF is embedded in the page (scripts/embed_pdf.py)
+#  and encrypted together with it, so it has no URL of its own - it can only be
+#  downloaded from the page, after the code is typed in.
 # =============================================================================
 meta:
   name: Your Name
@@ -20,7 +24,6 @@ meta:
   linkedin_label: linkedin.com/in/you
   linkedin_url: https://www.linkedin.com/in/you/
   site_url: https://YOUR-USER.github.io/YOUR-REPO/
-  pdf_url: https://github.com/YOUR-USER/YOUR-REPO/releases/latest/download/cv.pdf
   page_title: Your Name — Your Job Title | Curriculum Vitae
   description: >-
     Curriculum Vitae of Your Name, Your Job Title. Download the PDF or view it

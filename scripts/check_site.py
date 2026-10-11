@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 r"""Fail if a published site directory still contains the CV in plain text.
 
-Everything the workflow publishes is encrypted first: the PDF with
-`scripts/protect_pdf.py` (AES-256) and web/index.html with StatiCrypt. This
-script is the guard that proves the result is clean - it runs in CI right before
-the Pages artifact is uploaded.
+The page that gets published is encrypted with StatiCrypt (`CV_PDF_PASSWORD`) and
+carries the PDF *inside* it (`scripts/embed_pdf.py`), so the PDF has no URL of its
+own to fetch. This script fails the build when
+
+  * the page is not StatiCrypt-encrypted,
+  * a separate `*.pdf` file shows up in the site directory (a static host would
+    serve it to anyone, code or no code), or
+  * any published file still carries a `cv.yaml` string in its raw bytes.
+
+It runs in CI right before the Pages artifact is uploaded.
 
     python scripts/check_site.py _site              # CI (content fingerprinted)
     python scripts/check_site.py _site --show-text  # local debugging only
@@ -33,9 +39,9 @@ MAX_NEEDLES = 40
 MAX_ANNOTATIONS = 5   # how many leaks to surface as GitHub check annotations
 # StatiCrypt stamps its runtime into the page; without it the page is plain HTML.
 ENCRYPTED_MARKER = b"staticrypt"
-# An encrypted PDF must carry an /Encrypt dictionary in its trailer, whatever
-# the text inside the (compressed) streams looks like.
-PDF_ENCRYPTED_MARKER = b"/Encrypt"
+# The PDF is embedded in the page (scripts/embed_pdf.py) and encrypted with it, so
+# there is no PDF file to inspect: a stray *.pdf in the site directory is itself a
+# failure (see main()). The raw-byte scan below is the backstop for everything else.
 # Always check the contact details, even though they are short.
 PII_KEYS = ("email", "phone", "phone_link")
 
@@ -80,23 +86,8 @@ def fingerprint(text: str) -> str:
     return f"len={len(text)} sha256={digest}"
 
 
-def pdf_password_protected(path: pathlib.Path):
-    """True/False when pikepdf is available, None when it is not installed."""
-    try:
-        import pikepdf
-    except ImportError:  # pragma: no cover
-        return None
-    try:
-        with pikepdf.open(str(path)):
-            return False
-    except pikepdf.PasswordError:
-        return True
-    except Exception as exc:  # damaged file, not a PDF, ...
-        return f"error: {exc}"
-
-
 def scan(site: pathlib.Path, needles: list[str], show_text: bool) -> list[str]:
-    """Raw byte search: works for the encrypted PDF just as well as for HTML."""
+    """Raw byte search: works for the PDF just as well as for the HTML."""
     leaks = []
     for path in sorted(site.rglob("*")):
         if not path.is_file():
@@ -136,17 +127,12 @@ def main(argv=None) -> int:
     elif ENCRYPTED_MARKER not in index.read_bytes().lower():
         problems.append("index.html: not encrypted (StatiCrypt marker not found)")
 
+    # The PDF must NOT sit next to the page: a static host would serve /cv.pdf to
+    # anyone who asks. It is embedded in the page instead (scripts/embed_pdf.py),
+    # which is the only thing the code then has to unlock.
     for pdf in sorted(site.rglob("*.pdf")):
-        name = pdf.relative_to(site)
-        if PDF_ENCRYPTED_MARKER not in pdf.read_bytes():
-            problems.append(f"{name}: no /Encrypt dictionary - the PDF is readable")
-            continue
-        # Belt and braces: actually try to open it without a password.
-        protected = pdf_password_protected(pdf)
-        if protected is False:
-            problems.append(f"{name}: opens without a password - the PDF is readable")
-        elif isinstance(protected, str):
-            problems.append(f"{name}: could not be verified ({protected})")
+        problems.append(f"{pdf.relative_to(site).as_posix()}: a separate PDF file "
+                        f"was published - it must be embedded in the page")
 
     problems += scan(site, needles, show_text)
 
@@ -168,8 +154,10 @@ def main(argv=None) -> int:
                   f"({len(files)} files scanned) - see the raw log")
         return 1
 
-    print(f"OK: {site} is encrypted - {len(files)} files scanned, "
+    print(f"OK: {site} is protected - {len(files)} files scanned, "
           f"{len(needles)} content strings checked, none readable")
+    print("    page: StatiCrypt-encrypted, and the PDF is embedded in it "
+          "(no separate cv.pdf is published)")
     return 0
 
 

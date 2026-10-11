@@ -17,7 +17,7 @@ OUT     := dist
 AGE_KEY_FILE ?= $(HOME)/.age/cv-key.txt
 AGE_RECIPIENT ?= $(shell grep -o 'age1[a-z0-9]*' $(AGE_KEY_FILE) | tail -1)
 
-.PHONY: all gen check pdf preview protected encrypt decrypt clean
+.PHONY: all gen check pdf preview site protected encrypt decrypt clean
 
 all: pdf
 
@@ -38,7 +38,18 @@ pdf: gen
 preview: pdf
 	python scripts/preview.py
 
-# Password-protected copy:  make protected PASSCODE="code for HR"
+# Assemble the page the way CI does (PDF embedded in it, so the PDF has no URL of
+# its own):  _site/index.html + _site/style.css. CI then encrypts it with
+# StatiCrypt + CV_PDF_PASSWORD; locally you can open _site/index.html directly.
+site: pdf
+	@mkdir -p _site
+	cp -r web/. _site/
+	rm -f _site/index.html _site/preview.png _site/cv.pdf
+	python scripts/embed_pdf.py --in web/index.html --pdf $(OUT)/$(PDF) --out _site/index.html
+	@echo "Open _site/index.html (CI adds the StatiCrypt step)"
+
+# Optional separate copy that asks for a code when opened:
+#   make protected PASSCODE="code for HR"
 protected: pdf
 	python scripts/protect_pdf.py --in $(OUT)/$(PDF) --password "$(PASSCODE)"
 

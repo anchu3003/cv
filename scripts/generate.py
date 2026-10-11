@@ -500,7 +500,6 @@ def html_page(data: dict) -> str:
         "{{DESCRIPTION}}": htm(m["description"]),
         "{{SITE_URL}}": m["site_url"],
         "{{PREVIEW_IMAGE}}": m["preview_image"],
-        "{{PDF_URL}}": m["pdf_url"],
         # Name the browser saves the PDF as (the download attribute on the button).
         "{{PDF_DOWNLOAD_NAME}}": htm(m["pdf_download_name"]),
         "{{NAME}}": htm(m["name"]),
