@@ -30,15 +30,28 @@ DATA_FILE = ROOT / "data" / "cv.yaml"
 TEMPLATE_FILE = ROOT / "templates" / "index.html"
 
 # Render order of the sections (matches the order of \input in src/cv.tex).
+# These are the exact keys of `sections:` in data/cv.yaml, so the content file
+# decides the shape of a section while this list decides the order.
+# `experience_projects` is one merged section: each entry can describe a role, a
+# project, or both (see ENTRY keys in the LaTeX/HTML renderers below).
 SECTION_ORDER = [
     "summary",
-    "experience",
+    "experience_projects",
     "skills",
-    "projects",
     "education",
     "languages",
     "certificates",
 ]
+
+
+def section_slug(key: str) -> str:
+    """File- and HTML-safe name for a section key.
+
+    A section key has to survive as a file name and as an HTML id, so anything
+    that is not a letter or a digit collapses into a single underscore
+    ("experience_projects").
+    """
+    return re.sub(r"[^0-9a-z]+", "_", key.lower()).strip("_")
 
 BANNER_TEX = (
     "% " + "-" * 74 + "\n"
@@ -192,16 +205,34 @@ def tex_summary(data: dict) -> str:
     return BANNER_TEX + f"\\cvsection{{{tex(s['title'])}}}\n\n{tex(s['text'])}\n"
 
 
-def tex_experience(data: dict) -> str:
-    s = data["sections"]["experience"]
-    out = [BANNER_TEX, f"\\cvsection{{{tex(s['title'])}}}\n"]
-    for job in s["entries"]:
-        out.append(
-            f"\\cventry{{{tex(job['role'])}}}{{{tex(job['company'])}}}"
-            f"{{{tex(job['dates'])}}}"
+def tex_experience_projects(data: dict) -> str:
+    r"""`experience_projects`: role + company + dates, then the project story.
+
+    Entry keys (all of them are rendered here): name, role, company, dates,
+    description, responsibilities[], achievements[], technologies_tools.
+    """
+    s = data["sections"]["experience_projects"]
+    out = [BANNER_TEX, "\\cvsection{" + tex(s["title"]) + "}\n"]
+    for i, e in enumerate(s["entries"]):
+        if i:
+            out.append("\\cvxpgap")
+        subtitle = " $\\cdot$ ".join(
+            tex(part) for part in (e.get("role", ""), e.get("company", ""))
+            if clean(part)
         )
-        if job.get("highlights"):
-            out.append(bullets_tex(job["highlights"]).rstrip("\n"))
+        out.append(
+            "\\cvxpentry{" + tex(e["name"]) + "}{" + subtitle + "}{"
+            + tex(e.get("dates", "")) + "}"
+        )
+        if clean(e.get("description", "")):
+            out.append("\\cvdesc{" + tex(e["description"]) + "}")
+        for key, label in (("responsibilities", "Responsibilities"),
+                           ("achievements", "Achievements")):
+            if e.get(key):
+                out.append("\\cvlabel{" + label + "}")
+                out.append(bullets_tex(e[key]).rstrip("\n"))
+        if clean(e.get("technologies_tools", "")):
+            out.append("\\cvtech{" + tex(e["technologies_tools"]) + "}")
     return "\n".join(out) + "\n"
 
 
@@ -218,22 +249,6 @@ def tex_skills(data: dict) -> str:
         + body
         + "\n}\n"
     )
-
-
-def tex_projects(data: dict) -> str:
-    s = data["sections"]["projects"]
-    out = [BANNER_TEX, f"\\cvsection{{{tex(s['title'])}}}\n"]
-    for i, p in enumerate(s["entries"]):
-        if i:
-            out.append("\\cvprojectgap")
-        out.append(f"\\cvproject{{{tex(p['name'])}}}{{{tex(p['dates'])}}}")
-        out.append(f"\\textbf{{Project Description:}} {tex(p['description'])}")
-        if p.get("responsibilities"):
-            out.append("\\cvlabel{Responsibilities}")
-            out.append(bullets_tex(p["responsibilities"]).rstrip("\n"))
-        if p.get("technologies"):
-            out.append(f"\\cvtech{{{tex(p['technologies'])}}}")
-    return "\n".join(out) + "\n"
 
 
 def tex_education(data: dict) -> str:
@@ -319,14 +334,39 @@ def html_summary(data: dict) -> str:
     return html_section(s["title"], "summary", inner)
 
 
-def html_experience(data: dict) -> str:
-    s = data["sections"]["experience"]
+def html_experience_projects(data: dict) -> str:
+    """Same entry list as the LaTeX side: one block per role / project."""
+    s = data["sections"]["experience_projects"]
     inner = []
-    for job in s["entries"]:
-        inner.append(html_entry(job["role"], job["company"], job["dates"]))
-        if job.get("highlights"):
-            inner.append(bullets_html(job["highlights"]))
-    return html_section(s["title"], "experience", inner)
+    for e in s["entries"]:
+        subtitle = " · ".join(
+            clean(part) for part in (e.get("role", ""), e.get("company", ""))
+            if clean(part)
+        )
+        inner.append('        <div class="project">\n')
+        inner.append('          <div class="row">\n')
+        inner.append('            <h3 class="project-name">' + htm(e["name"]) + "</h3>\n")
+        inner.append(
+            '            <span class="dates">' + htm(e.get("dates", "")) + "</span>\n"
+        )
+        inner.append("          </div>\n")
+        if subtitle:
+            inner.append('          <p class="entry-sub">' + htm(subtitle) + "</p>\n")
+        if clean(e.get("description", "")):
+            inner.append("          <p>" + htm(e["description"]) + "</p>\n")
+        for key, label in (("responsibilities", "Responsibilities"),
+                           ("achievements", "Achievements")):
+            if e.get(key):
+                inner.append('          <p class="label">' + label + "</p>\n")
+                inner.append(bullets_html(e[key]))
+        if clean(e.get("technologies_tools", "")):
+            inner.append(
+                '          <p class="tech">'
+                '<span class="label">Technologies &amp; tools:</span> '
+                + htm(e["technologies_tools"]) + "</p>\n"
+            )
+        inner.append("        </div>\n")
+    return html_section(s["title"], section_slug("experience_projects"), inner)
 
 
 def html_skills(data: dict) -> str:
@@ -412,9 +452,8 @@ TEX_RENDERERS = {
     "theme": tex_theme,
     "header": tex_header,
     "summary": tex_summary,
-    "experience": tex_experience,
+    "experience_projects": tex_experience_projects,
     "skills": tex_skills,
-    "projects": tex_projects,
     "education": tex_education,
     "languages": tex_languages,
     "certificates": tex_certificates,
@@ -422,9 +461,8 @@ TEX_RENDERERS = {
 
 HTML_RENDERERS = {
     "summary": html_summary,
-    "experience": html_experience,
+    "experience_projects": html_experience_projects,
     "skills": html_skills,
-    "projects": html_projects,
     "education": html_education,
     "languages": html_languages,
     "certificates": html_certificates,
@@ -534,7 +572,10 @@ def load_data() -> dict:
 
 def build_outputs() -> dict:
     data = load_data()
-    files = {f"src/generated/{name}.tex": fn(data) for name, fn in TEX_RENDERERS.items()}
+    files = {
+        f"src/generated/{section_slug(name)}.tex": fn(data)
+        for name, fn in TEX_RENDERERS.items()
+    }
     files["web/index.html"] = html_page(data)
     return files
 

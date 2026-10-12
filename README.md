@@ -198,26 +198,40 @@ theme:                    # the palette used by BOTH renderings
 fonts:                    # latex: a font shipped with TeX Live | html: a Google-Fonts family
 layout:                   # PDF margins + the maximum width of the web page
 sections:
-  summary:      { title: Profile Summary, text: "…" }
-  experience:   { title: Experience, entries: [ {role, company, dates, highlights?} ] }
-  skills:       { title: Skills, groups: [ {name, items, level?} ] }
-  projects:     { title: Projects, entries: [ {name, dates, description,
-                                               responsibilities[], technologies} ] }
-  education:    { title: Education, entries: [ {school, major, dates} ] }
-  languages:    { title: Language, entries: [ {name, score} ] }
-  certificates: { title: Certificates, entries: [ {name, issuer, issued,
-                                                   expires, credential_id?} ] }
+  summary:              { title: Profile Summary, text: "…" }
+  experience_projects:  { title: Experience & Projects, entries: [ {name, role,
+                          company, dates, description, technologies_tools?,
+                          responsibilities[], achievements[]} ] }
+  skills:               { title: Skills, groups: [ {name, items, level?} ] }
+  education:            { title: Education, entries: [ {school, major, dates?} ] }
+  languages:            { title: Languages, entries: [ {name, score} ] }
+  certificates:         { title: Certifications, entries: [ {name, issuer, issued,
+                                                             expires, credential_id?} ] }
 ```
 
-`sections` must contain all seven keys, and the order in which they are rendered is
-fixed in `SECTION_ORDER` inside `scripts/generate.py` — not by the order in the
-file. `data/cv.example.yaml` shows every required field.
+`sections` must contain exactly those six keys, and the order in which they are
+rendered is fixed in `SECTION_ORDER` inside `scripts/generate.py` — not by the
+order in the file. A section *key* is only an internal name (it becomes the file
+name `src/generated/<key>.tex` and the HTML id); what a reader — and an ATS —
+sees is the section `title:`, so name the title the way the job ads do
+(`Work Experience`, `Skills`, `Certifications`, …).
+
+An entry of `experience_projects` can describe a role, a project or both:
+`name` / `role` / `company` / `dates` are required and `description` /
+`technologies_tools` / `responsibilities` / `achievements` are optional, so an
+entry is only as long as you need. `data/cv.example.yaml` shows every field, and
+`python scripts/validate.py` lints the structure (unknown keys, missing keys,
+duplicate keys, a `#` that YAML keeps as text, date ranges that overlap, …).
+`python scripts/test_validate.py` proves that lint actually fires, by feeding it
+14 deliberately broken copies of `data/cv.yaml` (schema keys only, so the test
+file itself carries no CV content).
 
 Common tasks:
 
-- **New job** → add an entry under `sections.experience.entries` (newest first).
-- **Achievements for a job** → add a `highlights:` list to that entry — the best
-  place for numbers (“cut report latency by 40 %”).
+- **New role or project** → add an entry under
+  `sections.experience_projects.entries` (newest first).
+- **Achievements** → the `achievements:` list of that entry — the best place for
+  numbers (“cut report latency by 40 %”).
 - **New skill row** → add to `sections.skills.groups` (`level: ""` hides the level
   chip for one row).
 - **Re-colour everything** → change `theme.bar` / `theme.accent` / … and run
@@ -235,7 +249,7 @@ Common tasks:
 | Layer | File | Contains |
 | --- | --- | --- |
 | Content | `data/cv.yaml` | all text + palette + margins |
-| PDF design | `src/cv.tex` + `src/cvstyle.tex` | section order, fonts, macros (`\cvsection`, `\cventry`, `\cvtech`, …), spacing |
+| PDF design | `src/cv.tex` + `src/cvstyle.tex` | section order, fonts, macros (`\cvsection`, `\cvxpentry`, `\cvdesc`, `\cvtech`, …), spacing |
 | Web design | `templates/index.html` + `web/style.css` | page chrome, CSS grid/flex layout (colours and widths come from `data/cv.yaml`) |
 
 Both renderings intentionally share one structure: centred header → contact line →

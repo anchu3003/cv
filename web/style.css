@@ -44,6 +44,9 @@ body {
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: .17em;
+  /* Letter-spacing also widens the space between words by the same amount, so
+     without this the words look joined ("SENIOR SOFTWARE ENGINEER"). */
+  word-spacing: .12em;
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -186,8 +189,6 @@ li { margin: .08rem 0; }
   font-size: .74rem;
   text-align: center;
 }
-.site-foot code { font-size: .95em; }
-
 /* ------------------------------ Mobile ----------------------------------- */
 @media (max-width: 640px) {
   .cv { padding: 22px 18px; }

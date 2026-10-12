@@ -62,18 +62,31 @@ sections:
     text: >-
       Two or three sentences: what you do, how long you have done it, your
       strongest technologies and the kind of team you are looking for.
-  experience:
-    title: Experience
+  experience_projects:
+    title: Experience & Projects
     entries:
-      - role: Your Job Title
+      # One entry can be a role, a project, or both. These are the keys the
+      # renderers read; the optional ones are simply skipped when absent.
+      - name: Project or Role Name
+        role: Your Job Title
         company: Company Name
         dates: 01/2024 – Present
-        # optional: a few measurable achievements
-        highlights:
+        description: >-
+          What the project is, why it exists and what you owned on it.
+        technologies_tools: Java, Spring Boot, PostgreSQL, Docker
+        responsibilities:
+          - What you built or were responsible for.
+        achievements:
           - Something measurable you achieved.
-      - role: Previous Job Title
+      - name: Previous Project
+        role: Previous Job Title
         company: Previous Company
         dates: 06/2020 – 12/2023
+        description: One or two sentences about that project.
+        # optional: skip any of the keys below and the entry just gets shorter
+        technologies_tools: Java, Oracle
+        responsibilities:
+          - What you built there.
   skills:
     title: Skills
     groups:
@@ -83,15 +96,6 @@ sections:
       - name: Cloud
         items: AWS, Azure
         level: Intermediate
-  projects:
-    title: Projects
-    entries:
-      - name: Project Name
-        dates: 2024
-        description: What the project does, in one or two sentences.
-        responsibilities:
-          - What you built or were responsible for.
-        technologies: Java, Spring Boot, PostgreSQL
   education:
     title: Education
     entries:
@@ -99,12 +103,12 @@ sections:
         major: Your Major
         dates: 2018 – 2022
   languages:
-    title: Language
+    title: Languages
     entries:
       - name: English
         score: "B2"
   certificates:
-    title: Certificates
+    title: Certifications
     entries:
       - name: Certificate Name
         issuer: Issuing Body

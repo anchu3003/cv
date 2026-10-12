@@ -83,6 +83,13 @@ jobs:
       - name: Static checks (tooling always, content when a source is present)
         run: python scripts/validate.py
 
+      # Proves the validator still fires: it runs validate.py against a handful
+      # of deliberately broken copies of data/cv.yaml. The patches only touch
+      # schema keys, so this self-test never carries CV content.
+      - name: Self-test the validator (fault injection)
+        if: steps.source.outputs.present == 'true'
+        run: python scripts/test_validate.py
+
   spellcheck:
     runs-on: ubuntu-latest
     steps:

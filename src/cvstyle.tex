@@ -27,6 +27,10 @@
 \usepackage{array,tabularx}
 \usepackage[table]{xcolor}
 \usepackage{enumitem}
+% Keeps a heading with the lines that belong to it: without this, a section bar
+% or an entry headline can end up alone at the bottom of a page (the PDF then
+% reads nothing like the single continuous column of the web page).
+\usepackage{needspace}
 \usepackage[hidelinks]{hyperref}
 
 \setlength{\parindent}{0pt}
@@ -55,12 +59,21 @@
 
 % ------------------------------- Header -------------------------------------
 \newcommand{\cvname}[1]{{\fontsize{25}{29}\selectfont\bfseries\cvls[14]{#1}}}
-\newcommand{\cvrole}[1]{{\large\bfseries\cvls[30]{\color{cvaccent}\MakeUppercase{#1}}}}
+% \cvrole{Senior Software Engineer}: uppercase + letter-spaced. A letter-spaced
+% font widens the gap between two WORDS exactly as much as the gap between two
+% letters, so at LetterSpace=30 the line reads as one long word; \spaceskip
+% gives the word gap its own width (~2.4x the letter gap, like \cvname below).
+% The setting is local to this group, so nothing else in the document changes.
+\newcommand{\cvrole}[1]{%
+  {\large\bfseries\color{cvaccent}%
+   \spaceskip=0.8em\relax
+   \cvls[30]{\MakeUppercase{#1}}}}
 
 % --------------------------- Section heading ---------------------------------
 % Solid colour bar, full text width, white letter-spaced text.
 \newcommand{\cvsection}[1]{%
   \par\addvspace{9pt}%
+  \needspace{3\baselineskip}%  a bar never sits alone at the bottom of a page
   {\setlength{\fboxsep}{5pt}%
    \noindent\colorbox{cvbar}{%
      \makebox[\dimexpr\textwidth-2\fboxsep\relax][l]{%
@@ -70,7 +83,9 @@
 % ------------------------------- Entries -------------------------------------
 % \cventry{title (bold accent)}{subtitle (italic muted)}{dates (right)}
 \newcommand{\cventry}[3]{%
-  \par\addvspace{4pt}\noindent
+  \par\addvspace{4pt}%
+  \needspace{3\baselineskip}%  headline + the first line of its content stay together
+  \noindent
   \begin{tabularx}{\textwidth}{@{}Y r@{}}
     {\bfseries\color{cvaccent}#1} & {\footnotesize\color{cvmuted}#3}\\
     \multicolumn{2}{@{}l@{}}{\itshape\color{cvmuted}#2}
@@ -96,7 +111,9 @@
 
 % \cvcert{name}{issuer}{meta line}
 \newcommand{\cvcert}[3]{%
-  \par\addvspace{3pt}\noindent
+  \par\addvspace{3pt}%
+  \needspace{3\baselineskip}%  name + issuer + meta line stay on one page
+  \noindent
   \begin{tabularx}{\textwidth}{@{}Y r@{}}
     {\bfseries\color{cvaccent}#1} & {\footnotesize\color{cvmuted}#2}\\
     \multicolumn{2}{@{}l@{}}{\footnotesize\color{cvmuted}#3}
@@ -115,12 +132,12 @@
 % \cvlevel{Advanced} - skill proficiency chip (small caps, accent colour).
 \newcommand{\cvlevel}[1]{{\footnotesize\color{cvaccent}\textsc{#1}}}
 
-% \cvtech{...} - shaded "Technologies" strip.
+% \cvtech{...} - shaded "Technologies & tools" strip.
 \newcommand{\cvtech}[1]{%
   \par\addvspace{2.5pt}%
   {\setlength{\fboxsep}{4pt}%
    \noindent\colorbox{cvtechbg}{%
-     \parbox{\dimexpr\textwidth-2\fboxsep\relax}{\textbf{Technologies:} #1}}}%
+     \parbox{\dimexpr\textwidth-2\fboxsep\relax}{\textbf{Technologies \& tools:} #1}}}%
   \par\addvspace{0pt}}
 
 % Skills table columns: bold category | items (flexible) | right-aligned level.
@@ -137,3 +154,31 @@
 
 % Bullets: tight and predictable.
 \setlist[itemize]{leftmargin=1.35em,topsep=1pt,itemsep=0.5pt,parsep=0pt}
+
+% --------------------- Experience & Projects entries -------------------------
+% One list holds roles, projects or both, so each entry gets a project-style
+% headline plus the role/company subtitle underneath it:
+%   \cvxpentry{name}{subtitle (role $\cdot$ company)}{dates}
+\newcommand{\cvxpentry}[3]{%
+  \par\addvspace{5pt}%
+  \needspace{5\baselineskip}%  headline + subtitle + description stay together
+  \noindent
+  \begin{tabularx}{\textwidth}{@{}Y r@{}}
+    {\large\bfseries\color{cvaccent}#1} & {\footnotesize\color{cvmuted}#3}\\
+    \multicolumn{2}{@{}l@{}}{\itshape\color{cvmuted}#2}
+  \end{tabularx}%
+  \par\addvspace{0pt}}
+\newcommand{\cvxpgap}{\par\addvspace{5pt}}
+
+% \cvdesc{...} - description paragraph under a \cvxpentry.
+\newcommand{\cvdesc}[1]{\par\addvspace{2.5pt}\noindent #1\par\addvspace{0pt}}
+
+% ------------------------------- Footer -------------------------------------
+% One-line provenance note printed at the bottom of the LAST page. The document
+% uses \pagestyle{empty}, so the PDF carries no page number and this line is the
+% only thing in the footer area. Call it at the very end of src/cv.tex.
+\newcommand{\cvfooter}[1]{%
+  \par\vfill
+  \noindent\textcolor{cvrule}{\rule{\textwidth}{0.8pt}}\par\addvspace{3pt}%
+  {\footnotesize\color{cvmuted}#1}\par}
+
