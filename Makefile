@@ -108,6 +108,7 @@ site: pdf
 	cp -R web/. _site/
 	rm -f _site/index.html _site/cv.pdf
 	$(PYTHON) scripts/embed_pdf.py --in web/index.html --pdf $(OUT)/$(PDF) --out _site/index.html
+	$(PYTHON) scripts/stamp_download_name.py --in _site/index.html
 	@echo "Open _site/index.html (CI adds the StatiCrypt step)"
 
 # Optional separate copy that asks for a code when opened:

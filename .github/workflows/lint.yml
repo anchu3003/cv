@@ -18,11 +18,11 @@ jobs:
       CV_DATA_READY: ${{ secrets.CV_DATA_DEPLOY_KEY != '' }}
     steps:
       - name: Checkout this repository (tooling)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout the private CV sources
         if: env.CV_DATA_READY == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: anchu3003/cv-private
           ssh-key: ${{ secrets.CV_DATA_DEPLOY_KEY }}
@@ -30,7 +30,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
@@ -71,16 +71,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
       - name: Install codespell
         run: pip install codespell
 
-      - name: Run codespell (non-blocking)
+      # Advisory on purpose: a typo must not block publishing a CV. The ignore
+      # list and the skip patterns live in .codespellrc, so a local run reports
+      # exactly what CI reports.
+      - name: Run codespell (advisory)
         continue-on-error: true
-        run: codespell --skip="*.pdf,*.png,*.age,*.enc,data/cv.yaml" src scripts web templates README.md
+        run: codespell src scripts templates README.md

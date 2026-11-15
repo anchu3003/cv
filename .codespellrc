@@ -1,0 +1,8 @@
+# codespell configuration - shared by CI (.github/workflows/lint.yml) and by a
+# local `codespell src scripts templates README.md` in the repository root.
+[codespell]
+# Not typos: FPT is a company name, "thay" is Vietnamese in the admin page.
+ignore-words-list = fpt,thay
+# What generate.py and LaTeX produce is not prose (and locally it carries the
+# private CV text), plus binaries, encrypted blobs and build output.
+skip = *.pdf,*.png,*.age,*.enc,*.aux,*.log,*.out,*.xdv,*.synctex.gz,*.fls,*.fdb_latexmk,dist,_site,build,src/generated,web/index.html,web/admin.html

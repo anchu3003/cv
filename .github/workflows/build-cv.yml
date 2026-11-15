@@ -44,10 +44,10 @@ jobs:
       CV_DATA_READY: ${{ secrets.CV_DATA_DEPLOY_KEY != '' }}
     steps:
       - name: Checkout this repository (tooling)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout the private CV sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.DATA_REPO }}
           # Deploy key scoped to cv-private (settings -> Deploy keys). It pushes
@@ -78,7 +78,7 @@ jobs:
           echo "sites:${sites}"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
@@ -199,6 +199,10 @@ jobs:
               --pdf "build/$site/src/cv.pdf" \
               --out "$RUNNER_TEMP/clear/$site/index.html"
             cp "build/$site/web/style.css" "$RUNNER_TEMP/clear/$site/style.css"
+            # {date} in meta.pdf_download_name -> DDMMYYYY, here and not in the
+            # generated page: that one is committed and must not carry today's date.
+            python3 scripts/stamp_download_name.py \
+              --in "$RUNNER_TEMP/clear/$site/index.html"
           done
 
       - name: Encrypt both CV pages with the code (StatiCrypt)
@@ -268,7 +272,7 @@ jobs:
           python3 scripts/check_site.py _site --allow-plain-index "${data_args[@]}"
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -281,4 +285,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

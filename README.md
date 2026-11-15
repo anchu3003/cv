@@ -416,8 +416,9 @@ Common tasks:
 - **Change the fonts** → `fonts.latex` must be a package shipped with TeX Live,
   `fonts.html` a Google-Fonts family (the stylesheet URL is generated from it).
 - **Hide the site from search engines** → `meta.noindex: true`.
-- **Rename the file the browser saves** → `meta.pdf_download_name`
-  (e.g. `Firstname_Lastname_CV.pdf`).
+- **Rename the file the browser saves** → `meta.pdf_download_name`, with `{date}`
+  expanded to DDMMYYYY when the page is published
+  (e.g. `FirstName{date}SeniorAIEngineer.pdf` → `FirstName15112026SeniorAIEngineer.pdf`).
 - **A variant for another role** → add another folder in the data repository
   (`devops/cv.yaml`), push, and CI discovers it: `/cv/devops/` is built, added to
   the chooser (set `meta.site_label` / `meta.site_summary`) and recorded in
