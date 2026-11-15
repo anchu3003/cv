@@ -1,0 +1,134 @@
+# =============================================================================
+#  cv.example.yaml  |  starter file for the PRIVATE data repository
+# -----------------------------------------------------------------------------
+#  Copy it into your data repository as `ai/cv.yaml` (or `backend/cv.yaml`) and
+#  edit it there. Every field below is required unless marked optional, and this
+#  file passes `python scripts/validate.py --data <file>` as-is. Then:
+#
+#      make gen   DATA=../cv-private/ai/cv.yaml     # -> src/generated/*.tex + web/index.html
+#      make check DATA=../cv-private/ai/cv.yaml     # -> ALL STATIC CHECKS PASSED
+#
+#  The CV text never enters the public repository: it lives in the private data
+#  repository and CI reads it with a read-only deploy key.
+#
+#  There is no `pdf_url`: the PDF is embedded in the page (scripts/embed_pdf.py)
+#  and encrypted together with it, so it has no URL of its own - it can only be
+#  downloaded from the page, after the code is typed in.
+# =============================================================================
+meta:
+  name: Your Name
+  role: Your Job Title
+  location: City, Country
+  phone: "+1 555 0100"
+  phone_link: "+15550100"
+  email: you@example.com
+  linkedin_label: linkedin.com/in/you
+  linkedin_url: https://www.linkedin.com/in/you/
+  # Optional: a GitHub link in the header, next to LinkedIn.
+  github_label: github.com/you
+  github_url: https://github.com/you
+  site_url: https://YOUR-USER.github.io/YOUR-REPO/
+  page_title: Your Name — Your Job Title | Curriculum Vitae
+  description: >-
+    Curriculum Vitae of Your Name, Your Job Title. Download the PDF or view it
+    online.
+  pdf_title: Your Name - Curriculum Vitae
+  pdf_keywords: Your Job Title, Skill One, Skill Two
+  pdf_download_name: Your_Name_CV.pdf
+  noindex: false
+
+theme:
+  bar: "#2E5C8A"
+  bar_text: "#FFFFFF"
+  accent: "#1F4E79"
+  muted: "#5A6472"
+  rule: "#C9D6E4"
+  head_bg: "#E4EBF4"
+  tech_bg: "#F2F6FB"
+  page_bg: "#EEF1F5"
+  body: "#1A1A1A"
+
+fonts:
+  latex: sourceserifpro
+  html: "Source Serif 4"
+  html_fallback: Georgia, "Times New Roman", Times, serif
+
+layout:
+  margin_x_cm: 1.4
+  margin_y_cm: 0.95
+  max_width_px: 830
+  web_base_font_px: 16
+
+sections:
+  summary:
+    title: Profile Summary
+    text: >-
+      Two or three sentences: what you do, how long you have done it, your
+      strongest technologies and the kind of team you are looking for.
+  experience_projects:
+    title: Experience & Projects
+    entries:
+      # One entry can be a role, a project, or both. These are the keys the
+      # renderers read; the optional ones are simply skipped when absent.
+      - name: Project or Role Name
+        role: Your Job Title
+        company: Company Name
+        dates: 01/2024 – Present
+        description: >-
+          What the project is, why it exists and what you owned on it.
+        technologies_tools: Java, Spring Boot, PostgreSQL, Docker
+        responsibilities:
+          - What you built or were responsible for.
+        achievements:
+          - Something measurable you achieved.
+      - name: Previous Project
+        role: Previous Job Title
+        company: Previous Company
+        dates: 06/2020 – 12/2023
+        description: One or two sentences about that project.
+        # optional: skip any of the keys below and the entry just gets shorter
+        technologies_tools: Java, Oracle
+        responsibilities:
+          - What you built there.
+  # Personal / side projects: no employer, so `link_label` + `link_url` take the
+  # place of `company`. Same optional keys as an experience entry.
+  projects:
+    title: Projects
+    entries:
+      - name: Side Project Name
+        role: Solo developer
+        dates: 01/2025 – Present
+        link_label: github.com/you/project
+        link_url: https://github.com/you/project
+        description: >-
+          What it does, why you built it and what makes it non-trivial.
+        achievements:
+          - Something measurable you did on it.
+  skills:
+    title: Skills
+    groups:
+      - name: Languages
+        items: Java, TypeScript, SQL
+        level: Advanced          # optional - level: "" hides the chip for this row
+      - name: Cloud
+        items: AWS, Azure
+        level: Intermediate
+  education:
+    title: Education
+    entries:
+      - school: University Name
+        major: Your Major
+        dates: 2018 – 2022
+  languages:
+    title: Languages
+    entries:
+      - name: English
+        score: "B2"
+  certificates:
+    title: Certifications
+    entries:
+      - name: Certificate Name
+        issuer: Issuing Body
+        issued: Jan 2025
+        expires: Jan 2028
+        credential_id: ABC123

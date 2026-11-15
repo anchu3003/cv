@@ -1,0 +1,273 @@
+name: Build & Publish CVs
+
+# The CV text is NOT in this repository: it lives in the PRIVATE repository
+# anchu3003/cv-private, one file per site (`ai/cv.yaml`, `backend/cv.yaml`).
+# This workflow reads it with a deploy key (read-write: the built PDFs are
+# written back into cv-history/ there, see below) and publishes one encrypted
+# page per CV, plus the (password-protected) admin page at /admin/.
+#
+#   https://anchu3003.github.io/cv/ai/        <- cv-private/ai/cv.yaml
+#   https://anchu3003.github.io/cv/backend/    <- cv-private/backend/cv.yaml
+#   https://anchu3003.github.io/cv/admin/      <- applications log + cv-history/ list
+#   https://anchu3003.github.io/cv/            <- chooser page (no CV content)
+on:
+  push:
+    branches: [ main ]
+  # cv-private/.github/workflows/dispatch-cv.yml sends this after a data change.
+  repository_dispatch:
+    types: [ cv-data ]
+  # Safety net: rebuild even if the dispatch token is not configured.
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read       # the PDFs go to the data repository, not to this one
+  pages: write         # deploy GitHub Pages
+  id-token: write      # OIDC for the Pages deployment
+
+concurrency:
+  # Both CVs live in the same site, so a second run must never interleave.
+  group: pages
+  cancel-in-progress: true
+
+env:
+  SITES: ai backend
+  DATA_REPO: anchu3003/cv-private
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # `secrets` cannot be read inside `if:`, so their presence is promoted.
+      CV_PAGE_PROTECTED: ${{ secrets.CV_PDF_PASSWORD != '' }}
+      CV_ADMIN_PROTECTED: ${{ secrets.CV_ADMIN_PASSWORD != '' }}
+      CV_DATA_READY: ${{ secrets.CV_DATA_DEPLOY_KEY != '' }}
+    steps:
+      - name: Checkout this repository (tooling)
+        uses: actions/checkout@v4
+
+      - name: Checkout the private CV sources
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DATA_REPO }}
+          # Read-only deploy key scoped to cv-private (settings -> Deploy keys).
+          ssh-key: ${{ secrets.CV_DATA_DEPLOY_KEY }}
+          path: cv-data
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install build tools (PyYAML + cryptography)
+        run: python -m pip install --quiet pyyaml cryptography
+
+      - name: Refuse to build without the data repository key
+        if: env.CV_DATA_READY != 'true'
+        run: |
+          echo "::error title=CV_DATA_DEPLOY_KEY is missing::The CV sources live in the private repository $DATA_REPO. Add a read-only deploy key for it as the secret CV_DATA_DEPLOY_KEY."
+          exit 1
+
+      - name: Refuse to publish unprotected pages
+        if: env.CV_PAGE_PROTECTED != 'true'
+        run: |
+          echo "::error title=CV_PDF_PASSWORD is missing::Both CV pages are published StatiCrypt-encrypted. Add the secret or the build refuses to publish."
+          exit 1
+
+      - name: Prepare one build directory per CV
+        run: |
+          set -euo pipefail
+          for site in $SITES; do
+            mkdir -p "build/$site" "build/$site/data"
+            # A copy of the tooling (git archive: no .git, no untracked files).
+            git archive HEAD | tar -x -C "build/$site"
+              if [ ! -f "cv-data/$site/cv.yaml" ]; then
+              echo "::error title=No CV source::cv-data/$site/cv.yaml is missing in $DATA_REPO."
+              exit 1
+            fi
+            cp "cv-data/$site/cv.yaml" "build/$site/data/cv.yaml"
+            ( cd "build/$site" && python3 scripts/generate.py )
+            echo "rendered $site"
+          done
+
+      # ---- AI CV --------------------------------------------------------- #
+      - name: Compile the AI CV (XeLaTeX)
+        uses: xu-cheng/latex-action@v4
+        with:
+          working_directory: build/ai
+          root_file: src/cv.tex
+          work_in_root_file_dir: true
+          latexmk_use_xelatex: true
+          os: debian
+          # Full TeX Live image: Source Serif Pro ships with it, so the PDF is
+          # reproducible and matches a local `make pdf`.
+          extra_system_packages: "fontconfig"
+
+      # ---- backend CV ---------------------------------------------------- #
+      - name: Compile the backend CV (XeLaTeX)
+        uses: xu-cheng/latex-action@v4
+        with:
+          working_directory: build/backend
+          root_file: src/cv.tex
+          work_in_root_file_dir: true
+          latexmk_use_xelatex: true
+          os: debian
+          extra_system_packages: "fontconfig"
+
+      # ---- the built PDFs: recorded in the PRIVATE repository -------------- #
+      # A PDF is not encrypted, so it can never sit next to the site: a static
+      # host serves every file to anyone who asks. cv-history/ in the data
+      # repository keeps the newest 20 per CV, and the admin page lists and
+      # downloads them from there with the user's own token.
+      - name: Record both PDFs in cv-history/ (data repository)
+        env:
+          # The checkout above runs with persist-credentials: false, so the push
+          # sets up the deploy key itself instead of relying on the git config.
+          DEPLOY_KEY: ${{ secrets.CV_DATA_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          version=$(git -C cv-data rev-parse --short HEAD)
+          date=$(date -u +%F)
+          for site in $SITES; do
+            pages=$(grep -aoE 'Output written on cv\.(pdf|xdv) \([0-9]+ page' "build/$site/src/cv.log" \
+                    | grep -oE '[0-9]+' | head -1 || true)
+            python3 scripts/history_cv.py add --root cv-data/cv-history \
+              --site "$site" --pdf "build/$site/src/cv.pdf" \
+              --version "$site@$version" --date "$date" --pages "${pages:-0}"
+          done
+          python3 scripts/history_cv.py prune --root cv-data/cv-history --keep 20
+          cd cv-data
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cv-history
+          if git diff --cached --quiet; then
+            echo "cv-history/ is already up to date"
+            exit 0
+          fi
+          # [skip dispatch]: never let a snapshot commit rebuild the site
+          git commit -m "history: CV PDFs $(date -u +%Y-%m-%dT%H:%MZ) [skip dispatch]"
+          install -m 600 /dev/stdin "$RUNNER_TEMP/cv-history-key" <<<"$DEPLOY_KEY"
+          GIT_SSH_COMMAND="ssh -i $RUNNER_TEMP/cv-history-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+            git push "git@github.com:${DATA_REPO}.git" HEAD:main
+          rm -f "$RUNNER_TEMP/cv-history-key"
+
+      # ---- one page per CV, PDF embedded (no PDF file is ever published) -- #
+      - name: Embed each PDF in its own page
+        run: |
+          set -euo pipefail
+          for site in $SITES; do
+            mkdir -p "$RUNNER_TEMP/clear/$site"
+            python3 "build/$site/scripts/embed_pdf.py" \
+              --in  "build/$site/web/index.html" \
+              --pdf "build/$site/src/cv.pdf" \
+              --out "$RUNNER_TEMP/clear/$site/index.html"
+            cp "build/$site/web/style.css" "$RUNNER_TEMP/clear/$site/style.css"
+          done
+
+      - name: Encrypt both CV pages with the code (StatiCrypt)
+        env:
+          STATICRYPT_PASSWORD: ${{ secrets.CV_PDF_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ ${#STATICRYPT_PASSWORD} -lt 14 ]; then
+            echo "::warning title=Short CV_PDF_PASSWORD::The code is shorter than 14 characters - consider using a longer one."
+          fi
+          rm -rf _site
+          for site in $SITES; do
+            mkdir -p "_site/$site"
+            npx --yes staticrypt@3 "$RUNNER_TEMP/clear/$site/index.html" \
+              -d "_site/$site" --config false --short
+            cp "$RUNNER_TEMP/clear/$site/style.css" "_site/$site/style.css"
+          done
+
+      # ---- admin page: application log + CV snapshots --------------------- #
+      - name: Render the admin page
+        if: env.CV_ADMIN_PROTECTED == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/clear/admin"
+          python3 scripts/generate_admin.py \
+            --out "$RUNNER_TEMP/clear/admin/index.html"
+
+      - name: Encrypt the admin page with its own code (StatiCrypt)
+        if: env.CV_ADMIN_PROTECTED == 'true'
+        env:
+          STATICRYPT_PASSWORD: ${{ secrets.CV_ADMIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ ${#STATICRYPT_PASSWORD} -lt 14 ]; then
+            echo "::warning title=Short CV_ADMIN_PASSWORD::Consider a longer admin password."
+          fi
+          mkdir -p _site/admin
+          npx --yes staticrypt@3 "$RUNNER_TEMP/clear/admin/index.html" \
+            -d "_site/admin" --config false --short
+
+      - name: Warn when the admin page is not configured
+        if: env.CV_ADMIN_PROTECTED != 'true'
+        run: echo "::warning title=No admin page::Add the secret CV_ADMIN_PASSWORD to publish /admin/."
+
+      - name: Add the chooser page at the site root
+        run: |
+          cat > _site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en"><head><meta charset="utf-8"/>
+          <meta name="viewport" content="width=device-width,initial-scale=1"/>
+          <meta name="robots" content="noindex,nofollow"/>
+          <title>An Chu (Peter) - Curricula Vitae</title>
+          <style>
+           body{margin:0;min-height:100vh;display:grid;place-items:center;background:#EEF1F5;color:#1A1A1A;font-family:Georgia,"Times New Roman",serif}
+           main{max-width:34rem;padding:2rem;text-align:center}
+           h1{font-size:1.6rem;margin:0 0 .25rem}
+           p{color:#5A6472;margin:.25rem 0 1.5rem}
+           a{display:block;margin:.6rem 0;padding:.85rem 1rem;border:1px solid #C9D6E4;border-radius:.5rem;background:#fff;color:#1F4E79;text-decoration:none}
+           a:hover{border-color:#2E5C8A}
+           small{display:block;color:#5A6472;font-weight:normal;margin-top:.2rem}
+           .admin{margin-top:1.6rem}
+           .admin a{display:inline-block;margin:0;padding:.45rem 1.05rem;font-size:.73rem;letter-spacing:.07em;
+                    text-transform:uppercase;border:1px solid #C9D6E4;border-radius:.5rem;background:#fff;
+                    color:#5A6472;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;text-decoration:none}
+           .admin a:hover{border-color:#2E5C8A;color:#1F4E79;background:#F2F6FB}
+          </style></head>
+          <body><main>
+           <h1>An Chu (Peter)</h1>
+           <p>Choose a CV - each page asks for the same access code.</p>
+           <a href="ai/">AI Engineer CV<small>Python, RAG, retrieval evaluation</small></a>
+           <a href="backend/">Backend CV<small>Senior software engineer, Java microservices</small></a>
+          </main></body></html>
+          HTML
+          if [ -f _site/admin/index.html ]; then
+            sed -i 's|</main>|<p class="admin"><a href="admin/">admin</a></p></main>|' _site/index.html
+          fi
+
+      # ---- the guard that keeps both CVs out of the public site ----------- #
+      - name: Verify nothing of either CV is published in the clear
+        run: |
+          set -euo pipefail
+          python3 scripts/check_site.py _site/ai      --data cv-data/ai/cv.yaml
+          python3 scripts/check_site.py _site/backend --data cv-data/backend/cv.yaml
+          if [ -f _site/admin/index.html ]; then
+            python3 scripts/check_site.py _site/admin \
+              --data cv-data/ai/cv.yaml --data cv-data/backend/cv.yaml
+          fi
+          # The root is a chooser and /admin/ holds no CV text, but the scan still
+          # proves neither CV leaks anywhere below them.
+          python3 scripts/check_site.py _site --allow-plain-index \
+            --data cv-data/ai/cv.yaml --data cv-data/backend/cv.yaml
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

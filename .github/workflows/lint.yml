@@ -1,0 +1,87 @@
+name: Validate & Lint
+
+# The CV sources live in the PRIVATE repository anchu3003/cv-private. This
+# workflow reads them with the same read-only deploy key the build uses and
+# validates every file it finds; without the key it still checks the tooling.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  repository_dispatch:
+    types: [ cv-data ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      # `secrets` is not readable from `if:` - promote it to a job-level flag.
+      CV_DATA_READY: ${{ secrets.CV_DATA_DEPLOY_KEY != '' }}
+    steps:
+      - name: Checkout this repository (tooling)
+        uses: actions/checkout@v4
+
+      - name: Checkout the private CV sources
+        if: env.CV_DATA_READY == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: anchu3003/cv-private
+          ssh-key: ${{ secrets.CV_DATA_DEPLOY_KEY }}
+          path: cv-data
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PyYAML
+        run: python -m pip install --quiet pyyaml
+
+      - name: Tooling checks (no CV source needed)
+        run: python scripts/validate.py
+
+      - name: Generate + validate each CV
+        if: env.CV_DATA_READY == 'true'
+        run: |
+          set -euo pipefail
+          found=0
+          for site in ai backend; do
+            source="cv-data/$site/cv.yaml"
+            if [ ! -f "$source" ]; then
+              echo "::warning title=No $site CV::cv-data/$site/cv.yaml is missing in the data repository - skipped."
+              continue
+            fi
+            echo "== $site =="
+            python scripts/generate.py --data "$source"
+            python scripts/validate.py --data "$source"
+            found=1
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error title=No CV sources::The data repository carries no ai/cv.yaml or backend/cv.yaml."
+            exit 1
+          fi
+
+      # Proves the validator still fires: it runs validate.py against a handful of
+      # deliberately broken copies of the source. The patches only touch schema
+      # keys, so this self-test never carries CV content.
+      - name: Self-test the validator (fault injection)
+        if: env.CV_DATA_READY == 'true'
+        run: python scripts/test_validate.py --data cv-data/ai/cv.yaml
+
+  spellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install codespell
+        run: pip install codespell
+
+      - name: Run codespell (non-blocking)
+        continue-on-error: true
+        run: codespell --skip="*.pdf,*.png,*.age,*.enc,data/cv.yaml" src scripts web templates README.md

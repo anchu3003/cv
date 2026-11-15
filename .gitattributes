@@ -1,0 +1,11 @@
+* text=auto eol=lf
+*.pdf binary
+*.png binary
+*.jpg binary
+# The encrypted CV source is an age file: never touch its line endings.
+*.age binary
+
+# Generated files: keep them in the diff (they are the build input) but fold
+# them away in pull requests / GitHub's language stats.
+src/generated/*.tex  linguist-generated=true
+web/index.html       linguist-generated=true

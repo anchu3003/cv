@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>CV Admin — An Chu (Peter)</title>
+<style>
+:root{
+  --bar:#2E5C8A;--accent:#1F4E79;--accent-dark:#1A4162;--muted:#5A6472;--rule:#C9D6E4;
+  --bg:#EEF1F5;--head:#E4EBF4;--tech:#F2F6FB;--body:#1A1A1A;
+  --ok:#1E7A4B;--warn:#A86400;--bad:#A33A3A;
+  --serif:Georgia,"Times New Roman",Times,serif;
+  --sans:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --radius:.5rem;--shadow:0 2px 14px rgba(16,32,56,.09);
+}
+*{box-sizing:border-box}
+body{margin:0;padding:26px 16px 44px;background:var(--bg);color:var(--body);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto}
+a{color:var(--accent)}
+a:hover{color:var(--accent-dark)}
+
+/* ------------------------------- header -------------------------------- */
+header{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .9rem;margin:0 0 1.05rem;padding:0 0 .8rem;border-bottom:1px solid var(--rule)}
+.brand{min-width:0}
+h1{margin:0;font-family:var(--serif);font-size:1.75rem;line-height:1.15;color:var(--accent)}
+.sub{margin:.15rem 0 0;font-size:.8rem;color:var(--muted)}
+nav{display:flex;gap:.4rem;margin-left:auto}
+nav button{font:600 .8rem/1 var(--sans);padding:.55rem .95rem;border:1px solid var(--rule);border-radius:5px;background:#fff;color:var(--accent);cursor:pointer;transition:background .12s,border-color .12s,color .12s}
+nav button:hover{background:var(--tech);border-color:var(--bar)}
+nav button.active{background:var(--bar);border-color:var(--bar);color:#fff}
+
+/* -------------------------------- cards -------------------------------- */
+.card{background:#fff;border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem 1.15rem;margin:0 0 1rem}
+.card-head{margin:0 0 .85rem}
+.card-head h2{margin:0;font-family:var(--serif);font-size:1.18rem;color:var(--accent)}
+.card-head p{margin:.2rem 0 0;font-size:.82rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:.55rem}
+.stat{background:var(--tech);border:1px solid var(--rule);border-radius:.4rem;padding:.6rem .75rem}
+.stat b{display:block;font-family:var(--serif);font-size:1.5rem;line-height:1.1;color:var(--accent);font-variant-numeric:tabular-nums}
+.stat span{display:block;margin-top:.2rem;font-size:.66rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+/* ------------------------------- controls ------------------------------ */
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:0 0 .8rem}
+input[type=text],input[type=password],input[type=date],select,textarea{font-family:var(--sans);font-size:.86rem;line-height:1.3;padding:.45rem .6rem;border:1px solid var(--rule);border-radius:5px;background:#fff;color:var(--body);min-width:0}
+input[type=text]{flex:1 1 15rem}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--bar);box-shadow:0 0 0 3px rgba(46,92,138,.16)}
+textarea{min-height:4.6rem;resize:vertical}
+button.primary,button.ghost{font:600 .8rem/1 var(--sans);padding:.52rem .95rem;border-radius:5px;border:1px solid var(--accent);cursor:pointer;transition:background .12s,border-color .12s}
+button.primary{background:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent-dark);border-color:var(--accent-dark)}
+button.ghost{background:#fff;color:var(--accent)}
+button.ghost:hover{background:var(--tech);border-color:var(--bar)}
+.toolbar button.primary{margin-left:auto}
+#pat{flex:0 1 20rem}
+#tab-settings .toolbar button.primary{margin-left:0}
+#archMsg{margin-left:auto;font-size:.82rem}
+#msg,#patMsg,#archMsg{margin:.35rem 0 0;font-size:.85rem;min-height:1.1em}
+.card .hint{font-size:.85rem;margin:.1rem 0 .8rem}
+/* -------------------------------- tables ------------------------------- */
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--rule);border-radius:.4rem}
+table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff}
+table.tbl-apps{min-width:52rem}
+table.tbl-versions{min-width:34rem}
+thead th{background:var(--head);color:var(--accent);border-bottom:1px solid var(--rule)}
+th,td{padding:.55rem .65rem;text-align:left;vertical-align:middle;font-size:.87rem;border-bottom:1px solid #E3EAF2;overflow-wrap:anywhere}
+th{font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+th:first-child,td:first-child{padding-left:.8rem}
+th:last-child,td:last-child{padding-right:.8rem}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--tech)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td.end,th.end{text-align:right}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;color:var(--accent);white-space:nowrap}
+.empty{padding:1.6rem .5rem;text-align:center;color:var(--muted);font-size:.86rem}
+.chip{display:inline-block;padding:.15rem .55rem;border-radius:1rem;font-size:.72rem;font-weight:700;letter-spacing:.04em;border:1px solid var(--rule);background:var(--tech);color:var(--accent);white-space:nowrap}
+.chip.backend{background:#EDF5EE;border-color:#CBE0CE;color:#2A6B3D}
+.st{font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.st.sent{color:var(--muted)}.st.viewed{color:var(--accent)}.st.interview{color:var(--warn)}.st.offer{color:var(--ok)}.st.rejected{color:var(--bad)}.st.ghosted{color:#7A7A7A}
+.muted{color:var(--muted)}
+
+/* ---------------------------- row actions ------------------------------ */
+.row-act{display:flex;justify-content:flex-end;gap:.35rem}
+.row-act button{font:600 .74rem/1 var(--sans);padding:.36rem .62rem;border:1px solid var(--rule);border-radius:5px;background:#fff;color:var(--accent);cursor:pointer;white-space:nowrap}
+.row-act button:hover{background:var(--tech);border-color:var(--bar)}
+.row-act button.del{color:var(--bad);border-color:#E2CACA}
+.row-act button.del:hover{background:#FBEFEF;border-color:var(--bad)}
+#versionsWrap button{font-size:.76rem;padding:.42rem .7rem}
+
+/* -------------------------------- dialog ------------------------------- */
+dialog{border:1px solid var(--rule);border-radius:var(--radius);padding:0;max-width:min(580px,92vw);box-shadow:0 18px 48px rgba(16,32,56,.26)}
+dialog::backdrop{background:rgba(26,38,52,.45)}
+dialog form{padding:1.15rem 1.25rem 1.2rem;display:grid;gap:.7rem}
+dialog h2{margin:0;font-family:var(--serif);font-size:1.22rem;color:var(--accent)}
+label{display:grid;gap:.25rem;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.4rem}
+.err{color:var(--bad)}.ok{color:var(--ok)}
+.hidden{display:none}
+
+/* -------------------------------- footer ------------------------------- */
+footer{margin-top:1.3rem;color:var(--muted);font-size:.74rem;text-align:center}
+footer a{text-decoration:underline}
+
+@media(max-width:640px){
+  body{padding:18px 12px 34px}
+  .two{grid-template-columns:1fr}
+  nav{width:100%;margin-left:0}
+  nav button{flex:1 1 auto}
+  .stats{grid-template-columns:1fr 1fr}
+  .toolbar input[type=text],.toolbar select{flex:1 1 100%}
+  .toolbar button.primary{margin-left:0}
+  #pat{flex:1 1 100%}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand">
+    <h1>CV Admin</h1>
+    <p class="sub">Sổ đơn ứng tuyển và bản CV đã lưu · An Chu (Peter)</p>
+  </div>
+  <nav>
+    <button data-tab="apps" class="active">Đơn đã gửi</button>
+    <button data-tab="versions">Bản CV</button>
+    <button data-tab="settings">Cài đặt</button>
+  </nav>
+</header>
+
+<section id="tab-apps">
+  <div class="card"><div class="stats" id="stats"></div></div>
+  <div class="card">
+    <div class="card-head">
+      <h2>Danh sách đơn</h2>
+      <p class="muted">Mỗi thay đổi được ghi thẳng vào <code>applications.json</code> trong repo dữ liệu, thành một commit.</p>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="q" placeholder="Tìm công ty, vị trí, ghi chú…">
+      <select id="fCv"><option value="">Mọi CV</option><option value="ai">AI</option><option value="backend">Backend</option></select>
+      <select id="fStatus"><option value="">Mọi trạng thái</option></select>
+      <button class="primary" id="btnAdd">+ Thêm đơn</button>
+    </div>
+    <p id="msg"></p>
+    <div id="tableWrap"></div>
+  </div>
+</section>
+
+<section id="tab-versions" class="hidden">
+  <div class="card">
+    <div class="card-head">
+      <h2>Bản CV đã lưu</h2>
+      <p class="muted">Đọc từ <code id="histDir"></code> trong repo dữ liệu (cần token ở tab Cài đặt). PDF tải thẳng từ đó — không bản nào nằm trên site public.</p>
+    </div>
+    <div class="toolbar">
+      <button type="button" class="ghost" id="btnHist">Tải lại danh sách</button>
+      <span id="archMsg" class="msg" aria-live="polite"></span>
+    </div>
+    <div id="versionsWrap"></div>
+  </div>
+</section>
+
+<section id="tab-settings" class="hidden">
+  <div class="card">
+    <div class="card-head">
+      <h2>Cài đặt</h2>
+    </div>
+    <p class="muted hint">Token chỉ lưu trong <code>localStorage</code> của trình duyệt này, và chỉ dùng để đọc/ghi <code id="repoName"></code> (repo private chứa <code>applications.json</code>).</p>
+    <div class="toolbar">
+      <input type="password" id="pat" placeholder="github_pat_…">
+      <button class="primary" id="btnPat">Lưu token</button>
+      <button class="ghost" id="btnForget">Xoá token</button>
+    </div>
+    <p id="patMsg"></p>
+    <p class="muted hint">Quyền cần: <b>Contents: Read and write</b> trên đúng repo <code id="repoName2"></code>. Token được trình duyệt gọi thẳng api.github.com, không qua server nào.</p>
+  </div>
+</section>
+
+<footer>Đơn ứng tuyển: <span id="repoFoot"></span> · Bản CV đã lưu: <span id="archCount">0</span> · <a href="../">trang CV</a></footer>
+</div>
+
+<dialog id="dlg">
+  <form id="form">
+    <h2 id="dlgTitle">Thêm đơn</h2>
+    <div class="two">
+      <label>Ngày gửi<input type="date" name="sent" required></label>
+      <label>Trạng thái<select name="status"></select></label>
+    </div>
+    <label>Công ty<input type="text" name="company" required autocomplete="off"></label>
+    <label>Vị trí<input type="text" name="role" required autocomplete="off"></label>
+    <div class="two">
+      <label>Kênh<input type="text" name="channel" list="channels" placeholder="LinkedIn"></label>
+      <label>CV<select name="cv"><option value="ai">AI</option><option value="backend">Backend</option></select></label>
+    </div>
+    <label>Bản CV đã gửi<select name="cv_version" id="cvVersion"></select></label>
+    <div class="two">
+      <label>Follow-up<input type="date" name="follow_up"></label>
+      <label>Liên hệ<input type="text" name="contact" placeholder="HR / referral"></label>
+    </div>
+    <label>Ghi chú<textarea name="notes" rows="3"></textarea></label>
+    <div class="actions">
+      <button type="button" class="ghost" id="btnCancel">Huỷ</button>
+      <button type="submit" class="primary" id="btnSave">Lưu</button>
+    </div>
+  </form>
+</dialog>
+<datalist id="channels"><option>LinkedIn</option><option>TopCV</option><option>ITviec</option><option>Email</option><option>Referral</option><option>Company site</option></datalist>
+
+<script>
+"use strict";
+/* ---------------------------------------------------------------------------
+   The data store is a PRIVATE repository. This page talks to the GitHub REST
+   API directly from the browser: the token lives in localStorage of this
+   browser only, and is never sent anywhere except api.github.com.
+   --------------------------------------------------------------------------- */
+const DATA_REPO = "{{DATA_REPO}}";
+const DATA_PATH = "applications.json";
+// Snapshots live in the PRIVATE repository, not next to the site: a PDF is not
+// encrypted, and a static host serves every file to anyone who asks.
+const HISTORY_DIR = "{{HISTORY_DIR}}";
+const HISTORY_INDEX = HISTORY_DIR + "/index.json";
+const API_BASE = "https://api.github.com/repos/" + DATA_REPO + "/contents/";
+const API_URL = API_BASE + DATA_PATH;
+const LS_PAT = "cvAdminPat";
+const STATUSES = ["sent", "viewed", "interview", "offer", "rejected", "ghosted"];
+const STATUS_LABEL = {
+  sent: "đã gửi", viewed: "đã xem", interview: "phỏng vấn",
+  offer: "offer", rejected: "từ chối", ghosted: "im lặng",
+};
+
+const state = { pat: localStorage.getItem(LS_PAT) || "", sha: null, apps: [], editing: null, busy: false,
+  history: [], historyState: "idle", historyError: "" };
+
+const $ = (sel) => document.querySelector(sel);
+function node(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  if (props) {
+    for (const [key, value] of Object.entries(props)) {
+      if (key === "text") el.textContent = value;
+      else if (key === "class") el.className = value;
+      else if (key === "value" || key.startsWith("on")) el[key] = value;
+      else el.setAttribute(key, value);
+    }
+  }
+  for (const kid of kids) if (kid !== null && kid !== undefined) el.append(kid);
+  return el;
+}
+function setMsg(target, text, isError) {
+  const el = typeof target === "string" ? $(target) : target;
+  el.textContent = text || "";
+  el.className = text ? (isError ? "err" : "ok") : "";
+}
+const msg = (text, isError) => setMsg("#msg", text, isError);
+const archMsg = (text, isError) => setMsg("#archMsg", text, isError);
+
+/* ---- base64 <-> text (UTF-8 safe: the CV log has Vietnamese and em dashes) -- */
+function toB64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+function fromB64(b64) {
+  const binary = atob(String(b64).replace(/\s+/g, ""));
+  const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+/* ------------------------------- GitHub API ------------------------------- */
+async function gh(method, body) {
+  if (!state.pat) throw new Error("Chưa có token — mở tab Cài đặt và dán PAT.");
+  const res = await fetch(API_URL + (method === "GET" ? "?ref=main" : ""), {
+    method: method,
+    headers: Object.assign({
+      Authorization: "Bearer " + state.pat,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    }, body ? { "Content-Type": "application/json" } : {}),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 404) return null;                       // no applications.json yet
+  const payload = await res.json().catch(() => ({}));
+  if (res.status === 401) throw new Error("Token sai hoặc đã hết hạn (401).");
+  if (res.status === 403) throw new Error("Token thiếu quyền Contents: Read and write (403).");
+  if (res.status === 409) throw new Error("Dữ liệu vừa bị sửa ở nơi khác — tải lại rồi thử lại.");
+  if (!res.ok) throw new Error(payload.message || ("GitHub trả về " + res.status));
+  return payload;
+}
+
+/* The CV snapshots are plain files in the data repository. Asking for
+   `Accept: application/vnd.github.raw` returns the bytes themselves - the JSON
+   contents API would base64 them (~33% bigger for a PDF) and count against the
+   1 MB inline limit. */
+async function ghRaw(path) {
+  if (!state.pat) throw new Error("Chưa có token — mở tab Cài đặt và dán PAT.");
+  const res = await fetch(API_BASE + encodeURI(path), {
+    headers: {
+      Authorization: "Bearer " + state.pat,
+      Accept: "application/vnd.github.raw",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    cache: "no-store",
+  });
+  if (res.status === 404) return null;
+  if (res.status === 401) throw new Error("Token sai hoặc đã hết hạn (401).");
+  if (res.status === 403) throw new Error("Token thiếu quyền Contents: Read (403).");
+  if (!res.ok) throw new Error("GitHub trả về " + res.status);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+async function loadHistory() {
+  state.historyState = "loading";
+  state.historyError = "";
+  renderVersions();
+  try {
+    if (!state.pat) {
+      state.history = [];
+      state.historyState = "nopat";
+    } else {
+      const bytes = await ghRaw(HISTORY_INDEX);
+      const payload = bytes ? JSON.parse(new TextDecoder().decode(bytes)) : { entries: [] };
+      state.history = Array.isArray(payload.entries) ? payload.entries : [];
+      state.historyState = "ready";
+    }
+  } catch (err) {
+    state.history = [];
+    state.historyState = "error";
+    state.historyError = err.message;
+  }
+  renderVersions();
+  syncVersionOptions();
+}
+
+async function load() {
+  msg("Đang tải dữ liệu…");
+  try {
+    const file = await gh("GET");
+    if (file && file.content) {
+      state.sha = file.sha;
+      const parsed = JSON.parse(fromB64(file.content));
+      state.apps = Array.isArray(parsed.applications) ? parsed.applications : [];
+    } else {
+      state.sha = null;
+      state.apps = [];
+    }
+    msg("");
+  } catch (err) {
+    state.apps = [];
+    msg(err.message, true);
+  }
+  render();
+}
+
+async function save(commitMessage) {
+  const payload = { schema: 1, updated: new Date().toISOString(), applications: state.apps };
+  const body = { message: commitMessage, content: toB64(JSON.stringify(payload, null, 2)), branch: "main" };
+  if (state.sha) body.sha = state.sha;
+  const res = await gh("PUT", body);
+  if (res && res.content) state.sha = res.content.sha;
+}
+
+/* --------------------------------- render --------------------------------- */
+function render() {
+  renderStats();
+  renderTable();
+}
+
+function renderStats() {
+  const total = state.apps.length;
+  const ai = state.apps.filter((app) => app.cv === "ai").length;
+  const active = state.apps.filter((app) => app.status === "interview" || app.status === "offer").length;
+  const rejected = state.apps.filter((app) => app.status === "rejected").length;
+  const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+  const recent = state.apps.filter((app) => (app.sent || "") >= since).length;
+  const answered = state.apps.filter((app) => app.status && app.status !== "sent").length;
+  const rate = total ? Math.round((answered / total) * 100) : 0;
+  const cards = [
+    [total, "tổng đơn"], [ai, "CV AI"], [total - ai, "CV backend"],
+    [active, "PV / offer"], [rejected, "từ chối"], [recent, "30 ngày qua"], [rate + "%", "có phản hồi"],
+  ];
+  $("#stats").replaceChildren(...cards.map(([value, label]) =>
+    node("div", { class: "stat" }, node("b", { text: String(value) }), node("span", { text: label }))));
+}
+
+function filtered() {
+  const q = $("#q").value.trim().toLowerCase();
+  const cv = $("#fCv").value;
+  const status = $("#fStatus").value;
+  return state.apps
+    .filter((app) => (!cv || app.cv === cv) && (!status || app.status === status))
+    .filter((app) => !q || [app.company, app.role, app.notes, app.channel, app.contact]
+      .join(" ").toLowerCase().includes(q))
+    .sort((a, b) => String(b.sent || "").localeCompare(String(a.sent || "")));
+}
+
+function renderTable() {
+  const rows = filtered();
+  const wrap = $("#tableWrap");
+  if (!rows.length) {
+    wrap.replaceChildren(node("p", {
+      class: "empty",
+      text: state.apps.length ? "Không có đơn nào khớp bộ lọc." : "Chưa có đơn nào — bấm “+ Thêm đơn”.",
+    }));
+    return;
+  }
+  const widths = ["7rem", "18%", "22%", "5rem", "10rem", "7.5rem", "6.5rem", "6rem"];
+  const head = node("tr", null,
+    node("th", { text: "Ngày gửi" }),
+    node("th", { text: "Công ty" }),
+    node("th", { text: "Vị trí" }),
+    node("th", { text: "CV" }),
+    node("th", { text: "Bản CV" }),
+    node("th", { text: "Trạng thái" }),
+    node("th", { text: "Follow-up" }),
+    node("th", { class: "end", text: "" }));
+  const body = rows.map((app) => {
+    const notes = app.notes
+      ? node("div", { class: "muted", style: "font-size:.76rem;margin-top:.15rem", text: app.notes })
+      : null;
+    const actions = node("div", { class: "row-act" },
+      node("button", { type: "button", text: "Sửa", onclick: () => openEditor(app) }),
+      node("button", { type: "button", class: "del", text: "Xoá", onclick: () => removeApp(app) }));
+    return node("tr", null,
+      node("td", { class: "muted", text: app.sent || "—" }),
+      node("td", null, node("b", { text: app.company || "—" }),
+        app.contact ? node("div", { class: "muted", style: "font-size:.76rem", text: app.contact }) : null),
+      node("td", null, node("span", { text: app.role || "" }), notes),
+      node("td", null, node("span", {
+        class: "chip" + (app.cv === "backend" ? " backend" : ""),
+        text: app.cv === "backend" ? "Backend" : "AI",
+      })),
+      node("td", null, node("code", { text: app.cv_version || "—" })),
+      node("td", null, node("span", {
+        class: "st " + (app.status || "sent"),
+        text: STATUS_LABEL[app.status] || app.status || "",
+      })),
+      node("td", { class: "muted", text: app.follow_up || "—" }),
+      node("td", { class: "end" }, actions));
+  });
+  wrap.replaceChildren(node("div", { class: "tablewrap" },
+    node("table", { class: "tbl-apps" },
+      node("colgroup", null, ...widths.map((width) => node("col", { style: "width:" + width }))),
+      node("thead", null, head),
+      node("tbody", null, ...body))));
+}
+
+/* --------------------------------- editor --------------------------------- */
+function syncVersionOptions() {
+  const cv = $("#form select[name=cv]").value;
+  const options = state.history.filter((entry) => entry.site === cv);
+  const select = $("#cvVersion");
+  const current = select.value;
+  select.replaceChildren();
+  if (!options.length) {
+    select.append(node("option", { value: "", text: "(chưa có bản nào được lưu)" }));
+    return;
+  }
+  for (const entry of options) {
+    select.append(node("option", {
+      value: entry.version,
+      text: entry.date + " · " + entry.version + " · " + (entry.pages || "?") + " trang",
+    }));
+  }
+  if (current && options.some((entry) => entry.version === current)) select.value = current;
+}
+
+function openEditor(app) {
+  state.editing = app || null;
+  $("#dlgTitle").textContent = app ? "Sửa đơn" : "Thêm đơn";
+  const form = $("#form");
+  form.reset();
+  const today = new Date().toISOString().slice(0, 10);
+  form.elements.sent.value = app ? app.sent || today : today;
+  form.elements.status.value = app ? app.status || "sent" : "sent";
+  form.elements.company.value = app ? app.company || "" : "";
+  form.elements.role.value = app ? app.role || "" : "";
+  form.elements.channel.value = app ? app.channel || "" : "";
+  form.elements.cv.value = app ? app.cv || "ai" : "ai";
+  form.elements.contact.value = app ? app.contact || "" : "";
+  form.elements.follow_up.value = app ? app.follow_up || "" : "";
+  form.elements.notes.value = app ? app.notes || "" : "";
+  syncVersionOptions();
+  if (app && app.cv_version) form.elements.cv_version.value = app.cv_version;
+  $("#dlg").showModal();
+  form.elements.company.focus();
+}
+
+async function submitForm(event) {
+  event.preventDefault();
+  const form = $("#form");
+  const app = {
+    id: state.editing ? state.editing.id : "app-" + Date.now().toString(36),
+    sent: form.elements.sent.value,
+    company: form.elements.company.value.trim(),
+    role: form.elements.role.value.trim(),
+    channel: form.elements.channel.value.trim(),
+    cv: form.elements.cv.value,
+    cv_version: form.elements.cv_version.value,
+    status: form.elements.status.value,
+    follow_up: form.elements.follow_up.value,
+    contact: form.elements.contact.value.trim(),
+    notes: form.elements.notes.value.trim(),
+  };
+  if (!app.company || !app.role || !app.sent) return;
+  const isEdit = Boolean(state.editing);
+  if (isEdit) {
+    state.apps = state.apps.map((item) => (item.id === app.id ? app : item));
+  } else {
+    state.apps.push(app);
+  }
+  $("#dlg").close();
+  state.editing = null;
+  render();
+  try {
+    msg("Đang lưu…");
+    await save((isEdit ? "apps: update " : "apps: add ") + app.company + " (" + app.cv + ")");
+    msg("Đã lưu.", false);
+  } catch (err) {
+    msg(err.message, true);
+  }
+}
+
+async function removeApp(app) {
+  if (!confirm("Xoá đơn tại " + app.company + " (" + (app.role || "") + ")?")) return;
+  const backup = state.apps.slice();
+  state.apps = state.apps.filter((item) => item.id !== app.id);
+  render();
+  try {
+    msg("Đang xoá…");
+    await save("apps: remove " + app.company);
+    msg("Đã xoá.", false);
+  } catch (err) {
+    state.apps = backup;
+    render();
+    msg(err.message, true);
+  }
+}
+
+/* ------------------------------ CV snapshots ------------------------------ */
+function renderVersions() {
+  const wrap = $("#versionsWrap");
+  wrap.replaceChildren();
+  $("#archCount").textContent = String(state.history.length);
+  if (state.historyState === "nopat") {
+    wrap.append(node("p", { class: "empty" },
+      node("span", { text: "Cần token để đọc " + HISTORY_DIR + "/ trong repo dữ liệu." }),
+      node("button", {
+        type: "button", class: "ghost",
+        style: "margin-left:.5rem;padding:.28rem .65rem;font-size:.74rem",
+        text: "Cài đặt", onclick: () => switchTab("settings"),
+      })));
+    return;
+  }
+  if (state.historyState === "loading" || state.historyState === "idle") {
+    wrap.append(node("p", { class: "empty", text: "Đang tải danh sách bản CV…" }));
+    return;
+  }
+  if (state.historyState === "error") {
+    wrap.append(node("p", {
+      class: "empty err",
+      text: "Không đọc được " + HISTORY_INDEX + ": " + state.historyError,
+    }));
+    return;
+  }
+  if (!state.history.length) {
+    wrap.append(node("p", {
+      class: "empty",
+      text: "Chưa có bản nào trong " + HISTORY_DIR + "/. Mỗi lần build, workflow ghi PDF vào đó.",
+    }));
+    return;
+  }
+  const entries = state.history.slice().sort((a, b) =>
+    String(b.date || "").localeCompare(String(a.date || "")) ||
+    String(a.site || "").localeCompare(String(b.site || "")) ||
+    String(b.file || "").localeCompare(String(a.file || "")));
+  const widths = ["6rem", "8rem", "12rem", "6rem", "8.5rem", "auto", "7rem"];
+  const head = node("tr", null,
+    node("th", { text: "CV" }),
+    node("th", { text: "Ngày" }),
+    node("th", { text: "Bản" }),
+    node("th", { class: "num", text: "Trang" }),
+    node("th", { class: "num", text: "Dung lượng" }),
+    node("th", { text: "" }),
+    node("th", { class: "end", text: "" }));
+  const body = entries.map((entry) => node("tr", null,
+    node("td", null, node("span", {
+      class: "chip" + (entry.site === "backend" ? " backend" : ""),
+      text: entry.site === "backend" ? "Backend" : "AI",
+    })),
+    node("td", { class: "muted", text: entry.date || "" }),
+    node("td", null, node("code", { text: entry.version || "" })),
+    node("td", { class: "num", text: String(entry.pages || "?") }),
+    node("td", { class: "num muted", text: ((entry.bytes || 0) / 1024).toFixed(1) + " KB" }),
+    node("td"),
+    node("td", { class: "end" }, node("button", {
+      type: "button", class: "ghost", text: "Tải PDF",
+      onclick: () => downloadSnapshot(entry),
+    }))));
+  wrap.append(node("div", { class: "tablewrap" },
+    node("table", { class: "tbl-versions" },
+      node("colgroup", null, ...widths.map((width) => node("col", { style: "width:" + width }))),
+      node("thead", null, head),
+      node("tbody", null, ...body))));
+}
+
+/* The PDF is fetched from the data repository with the user's token, so nothing
+   has to be published next to the site. */
+async function downloadSnapshot(entry) {
+  if (!state.pat) {
+    archMsg("Cần token (tab Cài đặt) để tải PDF từ repo dữ liệu.", true);
+    return;
+  }
+  archMsg("Đang tải " + entry.file + "…");
+  try {
+    const bytes = await ghRaw(HISTORY_DIR + "/" + entry.file);
+    if (!bytes) throw new Error("Không thấy " + entry.file + " trong repo dữ liệu.");
+    if (new TextDecoder().decode(bytes.subarray(0, 4)) !== "%PDF") {
+      throw new Error("Tệp tải về không phải PDF.");
+    }
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    const link = node("a", {
+      href: url,
+      download: "CV-" + entry.site + "-" + String(entry.version).split("@").pop() + ".pdf",
+    });
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    archMsg("Đã tải " + entry.version + " (" + (bytes.length / 1024).toFixed(1) + " KB).");
+  } catch (err) {
+    archMsg(err.message, true);
+  }
+}
+
+/* ---------------------------------- init ---------------------------------- */
+function switchTab(name) {
+  for (const button of document.querySelectorAll("nav button")) {
+    button.classList.toggle("active", button.dataset.tab === name);
+  }
+  $("#tab-apps").classList.toggle("hidden", name !== "apps");
+  $("#tab-versions").classList.toggle("hidden", name !== "versions");
+  $("#tab-settings").classList.toggle("hidden", name !== "settings");
+}
+
+for (const button of document.querySelectorAll("nav button")) {
+  button.addEventListener("click", () => switchTab(button.dataset.tab));
+}
+for (const [value, label] of Object.entries(STATUS_LABEL)) {
+  $("#fStatus").append(node("option", { value: value, text: label }));
+  $("#form select[name=status]").append(node("option", { value: value, text: label }));
+}
+for (const el of document.querySelectorAll("#repoName, #repoName2, #repoFoot")) {
+  el.textContent = DATA_REPO;
+}
+$("#btnAdd").addEventListener("click", () => openEditor(null));
+$("#btnCancel").addEventListener("click", () => $("#dlg").close());
+$("#form").addEventListener("submit", submitForm);
+$("#form select[name=cv]").addEventListener("change", syncVersionOptions);
+$("#q").addEventListener("input", renderTable);
+$("#fCv").addEventListener("change", renderTable);
+$("#fStatus").addEventListener("change", renderTable);
+$("#btnPat").addEventListener("click", () => {
+  const value = $("#pat").value.trim();
+  if (!value) {
+    setMsg("#patMsg", "Dán token trước đã.", true);
+    return;
+  }
+  state.pat = value;
+  localStorage.setItem(LS_PAT, value);
+  $("#pat").value = "";
+  setMsg("#patMsg", "Đã lưu token trong trình duyệt này.");
+  load();
+  loadHistory();
+});
+$("#btnForget").addEventListener("click", () => {
+  state.pat = "";
+  localStorage.removeItem(LS_PAT);
+  setMsg("#patMsg", "Đã xoá token khỏi trình duyệt này.");
+});
+
+$("#btnHist").addEventListener("click", () => loadHistory());
+$("#histDir").textContent = HISTORY_DIR;
+
+renderVersions();
+render();
+loadHistory();
+if (state.pat) {
+  load();
+} else {
+  switchTab("settings");
+  msg("Chưa có token — dán PAT ở tab Cài đặt để xem dữ liệu.", false);
+}
+</script>
+</body>
+</html>
+
