@@ -621,9 +621,11 @@ async function downloadSnapshot(entry) {
       throw new Error("Tệp tải về không phải PDF.");
     }
     const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    // Keep the stored name: it is `meta.pdf_download_name` with the build date,
+    // i.e. the same file name the CV page hands to HR.
     const link = node("a", {
       href: url,
-      download: "CV-" + entry.site + "-" + String(entry.version).split("@").pop() + ".pdf",
+      download: entry.file.split("/").pop(),
     });
     document.body.append(link);
     link.click();

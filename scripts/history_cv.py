@@ -2,7 +2,8 @@
 r"""Record built CV PDFs as plain snapshots in the PRIVATE data repository.
 
     python scripts/history_cv.py add --root ../cv-private/cv-history \
-        --site ai --pdf build/ai/src/cv.pdf --version ai@1a2b3c4 --pages 3
+        --site ai --pdf build/ai/src/cv.pdf --version ai@1a2b3c4 --pages 3 \
+        --data cv-data/ai/cv.yaml
     python scripts/history_cv.py latest --root ../cv-private/cv-history --site ai
     python scripts/history_cv.py prune --root ../cv-private/cv-history --keep 20
     python scripts/history_cv.py list  --root ../cv-private/cv-history
@@ -19,10 +20,12 @@ fetches `cv-history/index.json` (and the PDFs next to it) with the user's token.
 Layout under --root:
 
     index.json                                  <- the list the admin page renders
-    <site>/<date>-<site>-<short sha>.pdf        <- one file per build
+    <site>/AnChu<DDMMYYYY><Role>.pdf            <- one file per build
 
-The file name carries the commit of the *data* repository the PDF was rendered
-from, so `git -C ../cv-private show <sha>` explains every snapshot.
+The name is `meta.pdf_download_name` with `{date}` expanded, i.e. exactly what HR
+gets when they download from the site; `index.json` keeps the data revision each
+snapshot was rendered from, so `git -C ../cv-private show <sha>` still explains
+every file. A second build of the same day gets `...-2.pdf`, `...-3.pdf`.
 """
 
 from __future__ import annotations
@@ -55,7 +58,38 @@ def short(version: str) -> str:
     return version.split("@", 1)[1] if "@" in version else version
 
 
-def relative_file(site: str, date: str, version: str) -> str:
+def dated(date: str) -> str:
+    """`2026-11-15` -> `15112026` (the DDMMYYYY in the file name)."""
+    year, month, day = date.split("-")
+    return f"{day}{month}{year}"
+
+
+def download_name(data: pathlib.Path, date: str) -> str:
+    """`meta.pdf_download_name` with `{date}` expanded - the name HR downloads.
+
+    Empty string when the source carries no name (the caller then falls back to
+    the dated `<date>-<site>-<sha>.pdf` scheme).
+    """
+    import yaml
+
+    try:
+        text = data.read_text(encoding="utf-8")
+    except OSError:
+        return ""                      # nothing to read: keep the dated name
+    try:
+        meta = (yaml.safe_load(text) or {}).get("meta") or {}
+    except yaml.YAMLError as exc:
+        sys.exit(f"{data}: invalid YAML ({exc})")
+    name = str(meta.get("pdf_download_name") or "").strip().replace("{date}", dated(date))
+    if not name:
+        return ""
+    return name if name.lower().endswith(".pdf") else f"{name}.pdf"
+
+
+def relative_file(site: str, date: str, version: str, name: str = "") -> str:
+    """`<site>/<name>`, or the dated legacy name when no name was given."""
+    if name:
+        return f"{site}/{name}"
     return f"{site}/{date}-{site}-{short(version)}.pdf"
 
 
@@ -71,17 +105,29 @@ def read_index(root: pathlib.Path) -> list[dict]:
     return [entry for entry in entries if isinstance(entry, dict) and entry.get("file")]
 
 
+DOWNLOAD_DATE_RE = re.compile(r"^AnChu(\d{2})(\d{2})(\d{4})")
+
+
 def parse_file(path: pathlib.Path) -> dict:
-    """Metadata that is recoverable from the path alone."""
+    """Metadata that is recoverable from the path alone.
+
+    The visible name (`AnChu15112026SeniorAIEngineer.pdf`) carries only the date;
+    the revision lives in index.json, which rebuild_index() merges back in.
+    """
     site = path.parent.name
-    stem = path.stem                      # 2026-11-15-ai-c32239e
-    date = stem[:10]
-    prefix = f"{date}-{site}-"
-    sha = stem[len(prefix):] if stem.startswith(prefix) else stem
+    stem = path.stem                      # AnChu15112026SeniorAIEngineer
+    matched = DOWNLOAD_DATE_RE.match(stem)
+    if matched:
+        day, month, year = matched.groups()
+        date, version = f"{year}-{month}-{day}", ""
+    else:                                 # legacy: 2026-11-15-ai-c32239e
+        date = stem[:10]
+        prefix = f"{date}-{site}-"
+        version = f"{site}@{stem[len(prefix):] if stem.startswith(prefix) else stem}"
     return {
         "site": site,
         "date": date,
-        "version": f"{site}@{sha}",
+        "version": version,
         "file": f"{site}/{path.name}",
         "bytes": path.stat().st_size,
     }
@@ -97,6 +143,7 @@ def rebuild_index(root: pathlib.Path, known: dict[str, dict]) -> list[dict]:
     for path in sorted(root.glob("*/*.pdf")):
         meta = parse_file(path)
         cached = known.get(meta["file"], {})
+        meta["version"] = cached.get("version") or meta["version"]
         meta["pages"] = int(cached.get("pages") or 0)
         meta["sha256"] = cached.get("sha256") or ""
         entries.append(meta)
@@ -130,6 +177,27 @@ def prune_dir(root: pathlib.Path, keep: int) -> int:
 
 
 
+def plan_target(root: pathlib.Path, site: str, rel: str, version: str,
+                known: dict[str, dict], force: bool) -> str:
+    """Where the snapshot goes, or "" when this revision is already recorded.
+
+    The visible name carries the date, not the revision, so a second build of the
+    same day would collide: that one becomes `...-2.pdf`, `...-3.pdf`.
+    """
+    if not force and any(entry.get("site") == site and entry.get("version") == version
+                         for entry in known.values()):
+        # One snapshot per data revision: the 6-hourly rebuild renders the same
+        # revision again and must not commit the same PDF over and over.
+        return ""
+    if force or not (root / rel).is_file():
+        return rel
+    stem, suffix = pathlib.Path(rel).stem, pathlib.Path(rel).suffix
+    n = 2
+    while (root / f"{site}/{stem}-{n}{suffix}").is_file():
+        n += 1
+    return f"{site}/{stem}-{n}{suffix}"
+
+
 def add(args) -> int:
     pdf = pathlib.Path(args.pdf)
     if not pdf.is_file():
@@ -140,16 +208,17 @@ def add(args) -> int:
 
     date = args.date or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
     root = pathlib.Path(args.root)
-    rel = relative_file(args.site, date, args.version)
+    name = download_name(pathlib.Path(args.data), date) if args.data else ""
+    known = {entry["file"]: entry for entry in read_index(root)}
+
+    rel = plan_target(root, args.site,
+                      relative_file(args.site, date, args.version, name),
+                      args.version, known, args.force)
+    if not rel:
+        print(f"{args.version} is already recorded - nothing to do")
+        return 0
     target = root / rel
     target.parent.mkdir(parents=True, exist_ok=True)
-
-    known = {entry["file"]: entry for entry in read_index(root)}
-    if target.is_file() and not args.force:
-        # One snapshot per data revision. The 6-hourly rebuild renders the same
-        # revision again, and it must not commit the same PDF over and over.
-        print(f"already recorded {rel} - nothing to do")
-        return 0
     shutil.copyfile(pdf, target)
     print(f"recorded {pdf} -> {target} ({len(raw)} B)")
 
@@ -216,6 +285,8 @@ def main(argv=None) -> int:
     p_add.add_argument("--force", action="store_true",
                        help="replace the snapshot if that revision is already recorded")
     p_add.add_argument("--date", default="", help="YYYY-MM-DD (default: UTC today)")
+    p_add.add_argument("--data",
+                       help="cv.yaml whose meta.pdf_download_name names the file")
     p_add.add_argument("--root", required=True,
                        help="cv-history/ inside the data repository")
     p_add.set_defaults(func=add)

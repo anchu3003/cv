@@ -165,7 +165,8 @@ jobs:
                     | grep -oE '[0-9]+' | head -1 || true)
             python3 scripts/history_cv.py add --root cv-data/cv-history \
               --site "$site" --pdf "build/$site/src/cv.pdf" \
-              --version "$site@$version" --date "$date" --pages "${pages:-0}"
+              --version "$site@$version" --date "$date" --pages "${pages:-0}" \
+              --data "cv-data/$site/cv.yaml"
             recorded=$((recorded + 1))
           done
           if [ "$recorded" -eq 0 ]; then

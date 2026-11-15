@@ -121,7 +121,7 @@ protected: pdf
 #   make history SITE=ai      (VERSION defaults to <site>@<data repo HEAD>)
 history: pdf
 	$(PYTHON) scripts/history_cv.py add --root $(HISTORY) --site $(SITE) \
-	  --pdf $(OUT)/$(PDF) --version $(VERSION) \
+	  --pdf $(OUT)/$(PDF) --version $(VERSION) --data $(DATA) \
 	  --pages "$$(pdfinfo $(OUT)/$(PDF) 2>/dev/null | awk '/^Pages:/ {print $$2}' || echo 0)"
 	@echo "now commit cv-history/ in the data repository with [skip dispatch]"
 

@@ -324,17 +324,19 @@ No server is involved and the token never reaches this repository.
 
 ### CV history (“tải lại CV cũ”)
 
-Every build copies the two PDFs into the **private** repository:
+Every build copies the PDFs into the **private** repository, named exactly like
+the file HR downloads:
 
 ```
-cv-private/cv-history/ai/2026-11-15-ai-1a2b3c4.pdf
-cv-private/cv-history/backend/2026-11-15-backend-1a2b3c4.pdf
+cv-private/cv-history/ai/AnChu15112026SeniorAIEngineer.pdf
+cv-private/cv-history/backend/AnChu15112026SeniorSoftwareEngineer.pdf
 cv-private/cv-history/index.json
 ```
 
-`<sha>` is the commit of the data repository the PDF was rendered from, so
-`git -C ../cv-private show <sha>` explains each snapshot, and `index.json` carries
-the page count and size the admin page shows.
+The name is `meta.pdf_download_name` with `{date}` expanded to DDMMYYYY; a second
+snapshot of the same day becomes `...-2.pdf`. `index.json` carries the data
+revision each file was rendered from (so `git -C ../cv-private show <sha>` explains
+it), plus the page count and size the admin page shows.
 
 A plain PDF can never be served by a static host, which is exactly why it lives
 there instead of next to the site: the admin page reads `cv-history/index.json` and
@@ -345,7 +347,7 @@ application/vnd.github.raw`), then saves the file from a blob URL.
 make history SITE=ai                            # from dist/cv.pdf
 python3 scripts/history_cv.py list --root ../cv-private/cv-history
 python3 scripts/history_cv.py add --root ../cv-private/cv-history --force \
-  --site ai --pdf dist/cv.pdf --version ai@manual --pages 2
+  --site ai --pdf dist/cv.pdf --version ai@manual --pages 2 --data data/cv.yaml
 ```
 
 CI records one snapshot per data revision (a rebuild of the same revision is a
