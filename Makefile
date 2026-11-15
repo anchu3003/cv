@@ -38,7 +38,7 @@ HISTORY ?= ../cv-private/cv-history
 VERSION ?= $(SITE)@$(shell git -C $(HISTORY)/.. rev-parse --short HEAD 2>/dev/null || echo local)
 
 .DEFAULT_GOAL := all
-.PHONY: all help update gen check pdf pages site protected admin history clean
+.PHONY: all help update gen check pdf pages site protected admin history chooser clean
 
 help:
 	@echo "my-cv - make targets"
@@ -54,11 +54,12 @@ help:
 	@echo "  make protected PASSCODE=\"...\"   pdf + dist/cv-protected.pdf"
 	@echo "  make admin           templates/admin.html -> web/admin.html (local preview)"
 	@echo "  make history         copy dist/cv.pdf into $$HISTORY/<site>/ (private repo)"
+	@echo "  make chooser         render the site chooser from the data repo (preview)"
 	@echo "  make clean           remove the LaTeX aux files and dist/"
 	@echo
 	@echo "  DATA=<file>          CV to build (default: data/cv.yaml; usually"
-	@echo "                       ../cv-private/ai/cv.yaml or ../cv-private/backend/cv.yaml)"
-	@echo "  SITE=ai|backend      which CV is being built (make history)"
+	@echo "                       ../cv-private/<site>/cv.yaml)"
+	@echo "  SITE=<folder>        which CV is being built (make history; default ai)"
 	@echo "  HISTORY=<dir>        cv-history/ inside the data repo (make history)"
 
 all: pdf
@@ -127,6 +128,12 @@ history: pdf
 admin:
 	$(PYTHON) scripts/generate_admin.py
 	@echo "open web/admin.html (CI encrypts it and publishes /admin/)"
+
+# The site chooser, rendered from every <site>/cv.yaml in the data repository.
+# CI writes this to _site/index.html; here it is just a preview.
+chooser:
+	$(PYTHON) scripts/generate_chooser.py --data-dir $(HISTORY)/.. --out $(OUT)/index.html
+	@echo "open $(OUT)/index.html (CI publishes it at the site root)"
 
 clean:
 	-cd $(SRC_DIR) && latexmk -C $(MAIN)

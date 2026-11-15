@@ -1,15 +1,15 @@
 name: Build & Publish CVs
 
 # The CV text is NOT in this repository: it lives in the PRIVATE repository
-# anchu3003/cv-private, one file per site (`ai/cv.yaml`, `backend/cv.yaml`).
+# anchu3003/cv-private, one `cv.yaml` per site. Every directory there that holds
+# a `cv.yaml` becomes a page - there is no list to maintain here:
+#
+#   cv-private/<site>/cv.yaml  ->  https://anchu3003.github.io/cv/<site>/
+#
 # This workflow reads it with a deploy key (read-write: the built PDFs are
 # written back into cv-history/ there, see below) and publishes one encrypted
-# page per CV, plus the (password-protected) admin page at /admin/.
-#
-#   https://anchu3003.github.io/cv/ai/        <- cv-private/ai/cv.yaml
-#   https://anchu3003.github.io/cv/backend/    <- cv-private/backend/cv.yaml
-#   https://anchu3003.github.io/cv/admin/      <- applications log + cv-history/ list
-#   https://anchu3003.github.io/cv/            <- chooser page (no CV content)
+# page per CV, plus the (password-protected) admin page at /admin/ and the
+# chooser at the site root.
 on:
   push:
     branches: [ main ]
@@ -27,12 +27,11 @@ permissions:
   id-token: write      # OIDC for the Pages deployment
 
 concurrency:
-  # Both CVs live in the same site, so a second run must never interleave.
+  # All CVs live in the same site, so a second run must never interleave.
   group: pages
   cancel-in-progress: true
 
 env:
-  SITES: ai backend
   DATA_REPO: anchu3003/cv-private
 
 jobs:
@@ -51,10 +50,32 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ env.DATA_REPO }}
-          # Read-only deploy key scoped to cv-private (settings -> Deploy keys).
+          # Deploy key scoped to cv-private (settings -> Deploy keys). It pushes
+          # the PDF snapshots back, so it needs write access.
           ssh-key: ${{ secrets.CV_DATA_DEPLOY_KEY }}
           path: cv-data
+          # Full history: the snapshot step compares a cv.yaml with the revision
+          # the newest snapshot of that site was rendered from.
+          fetch-depth: 0
           persist-credentials: false
+
+      # Every <site>/cv.yaml in the data repository is a site. Adding a CV needs
+      # no change here: drop the file in and the next build publishes it.
+      - name: Discover the CV sites
+        run: |
+          set -euo pipefail
+          sites=""
+          for dir in cv-data/*/; do
+            if [ -f "${dir}cv.yaml" ]; then
+              sites="$sites $(basename "$dir")"
+            fi
+          done
+          if [ -z "${sites// /}" ]; then
+            echo "::error title=No CV source::No <site>/cv.yaml found in $DATA_REPO."
+            exit 1
+          fi
+          echo "SITES=${sites# }" >> "$GITHUB_ENV"
+          echo "sites:${sites}"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -67,7 +88,7 @@ jobs:
       - name: Refuse to build without the data repository key
         if: env.CV_DATA_READY != 'true'
         run: |
-          echo "::error title=CV_DATA_DEPLOY_KEY is missing::The CV sources live in the private repository $DATA_REPO. Add a read-only deploy key for it as the secret CV_DATA_DEPLOY_KEY."
+          echo "::error title=CV_DATA_DEPLOY_KEY is missing::The CV sources live in the private repository $DATA_REPO. Add a deploy key for it (write access, it pushes the PDF snapshots back) as the secret CV_DATA_DEPLOY_KEY."
           exit 1
 
       - name: Refuse to publish unprotected pages
@@ -83,7 +104,7 @@ jobs:
             mkdir -p "build/$site" "build/$site/data"
             # A copy of the tooling (git archive: no .git, no untracked files).
             git archive HEAD | tar -x -C "build/$site"
-              if [ ! -f "cv-data/$site/cv.yaml" ]; then
+            if [ ! -f "cv-data/$site/cv.yaml" ]; then
               echo "::error title=No CV source::cv-data/$site/cv.yaml is missing in $DATA_REPO."
               exit 1
             fi
@@ -92,36 +113,37 @@ jobs:
             echo "rendered $site"
           done
 
-      # ---- AI CV --------------------------------------------------------- #
-      - name: Compile the AI CV (XeLaTeX)
-        uses: xu-cheng/latex-action@v4
-        with:
-          working_directory: build/ai
-          root_file: src/cv.tex
-          work_in_root_file_dir: true
-          latexmk_use_xelatex: true
-          os: debian
-          # Full TeX Live image: Source Serif Pro ships with it, so the PDF is
-          # reproducible and matches a local `make pdf`.
-          extra_system_packages: "fontconfig"
-
-      # ---- backend CV ---------------------------------------------------- #
-      - name: Compile the backend CV (XeLaTeX)
-        uses: xu-cheng/latex-action@v4
-        with:
-          working_directory: build/backend
-          root_file: src/cv.tex
-          work_in_root_file_dir: true
-          latexmk_use_xelatex: true
-          os: debian
-          extra_system_packages: "fontconfig"
+      # ---- one XeLaTeX run per site --------------------------------------- #
+      # A loop instead of one action step per CV, so a new site needs no edit
+      # here. The image is the one `xu-cheng/latex-action@v4` pulls for
+      # `os: debian`, so the PDF matches a local `make pdf` (Source Serif 4
+      # ships with it and embeds; no extra_system_packages needed).
+      - name: Compile every CV (XeLaTeX)
+        env:
+          TEX_IMAGE: ghcr.io/xu-cheng/texlive-debian:latest
+        run: |
+          set -euo pipefail
+          docker pull --quiet "$TEX_IMAGE"
+          for site in $SITES; do
+            echo "== compiling $site =="
+            ( cd "build/$site/src" &&
+              docker run --rm -e HOME=/tmp --user "$(id -u):$(id -g)" \
+                -v "$PWD/..:/work" -w /work/src "$TEX_IMAGE" \
+                latexmk -xelatex -interaction=nonstopmode -halt-on-error cv.tex )
+            grep -aoE 'Output written on cv\.(pdf|xdv) \([0-9]+ page' "build/$site/src/cv.log"
+          done
 
       # ---- the built PDFs: recorded in the PRIVATE repository -------------- #
       # A PDF is not encrypted, so it can never sit next to the site: a static
       # host serves every file to anyone who asks. cv-history/ in the data
       # repository keeps the newest 20 per CV, and the admin page lists and
       # downloads them from there with the user's own token.
-      - name: Record both PDFs in cv-history/ (data repository)
+      #
+      # One snapshot per site *that changed*: the PDF of an untouched CV is a
+      # rebuild of the previous snapshot under a new commit name, so compare that
+      # cv.yaml with the revision its newest snapshot came from. Changing both
+      # yamls records both sites - the rule is per site, not per push.
+      - name: Record the changed PDFs in cv-history/ (data repository)
         env:
           # The checkout above runs with persist-credentials: false, so the push
           # sets up the deploy key itself instead of relying on the git config.
@@ -130,13 +152,26 @@ jobs:
           set -euo pipefail
           version=$(git -C cv-data rev-parse --short HEAD)
           date=$(date -u +%F)
+          recorded=0
           for site in $SITES; do
+            prev=$(python3 scripts/history_cv.py latest --root cv-data/cv-history \
+                     --site "$site")
+            if [ -n "$prev" ] && git -C cv-data cat-file -e "${prev}^{commit}" 2>/dev/null \
+               && git -C cv-data diff --quiet "$prev" HEAD -- "$site/cv.yaml"; then
+              echo "skip $site: $site/cv.yaml is unchanged since $prev"
+              continue
+            fi
             pages=$(grep -aoE 'Output written on cv\.(pdf|xdv) \([0-9]+ page' "build/$site/src/cv.log" \
                     | grep -oE '[0-9]+' | head -1 || true)
             python3 scripts/history_cv.py add --root cv-data/cv-history \
               --site "$site" --pdf "build/$site/src/cv.pdf" \
               --version "$site@$version" --date "$date" --pages "${pages:-0}"
+            recorded=$((recorded + 1))
           done
+          if [ "$recorded" -eq 0 ]; then
+            echo "no CV source changed - nothing to record"
+            exit 0
+          fi
           python3 scripts/history_cv.py prune --root cv-data/cv-history --keep 20
           cd cv-data
           git config user.name  "github-actions[bot]"
@@ -210,51 +245,27 @@ jobs:
 
       - name: Add the chooser page at the site root
         run: |
-          cat > _site/index.html <<'HTML'
-          <!doctype html>
-          <html lang="en"><head><meta charset="utf-8"/>
-          <meta name="viewport" content="width=device-width,initial-scale=1"/>
-          <meta name="robots" content="noindex,nofollow"/>
-          <title>An Chu (Peter) - Curricula Vitae</title>
-          <style>
-           body{margin:0;min-height:100vh;display:grid;place-items:center;background:#EEF1F5;color:#1A1A1A;font-family:Georgia,"Times New Roman",serif}
-           main{max-width:34rem;padding:2rem;text-align:center}
-           h1{font-size:1.6rem;margin:0 0 .25rem}
-           p{color:#5A6472;margin:.25rem 0 1.5rem}
-           a{display:block;margin:.6rem 0;padding:.85rem 1rem;border:1px solid #C9D6E4;border-radius:.5rem;background:#fff;color:#1F4E79;text-decoration:none}
-           a:hover{border-color:#2E5C8A}
-           small{display:block;color:#5A6472;font-weight:normal;margin-top:.2rem}
-           .admin{margin-top:1.6rem}
-           .admin a{display:inline-block;margin:0;padding:.45rem 1.05rem;font-size:.73rem;letter-spacing:.07em;
-                    text-transform:uppercase;border:1px solid #C9D6E4;border-radius:.5rem;background:#fff;
-                    color:#5A6472;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;text-decoration:none}
-           .admin a:hover{border-color:#2E5C8A;color:#1F4E79;background:#F2F6FB}
-          </style></head>
-          <body><main>
-           <h1>An Chu (Peter)</h1>
-           <p>Choose a CV - each page asks for the same access code.</p>
-           <a href="ai/">AI Engineer CV<small>Python, RAG, retrieval evaluation</small></a>
-           <a href="backend/">Backend CV<small>Senior software engineer, Java microservices</small></a>
-          </main></body></html>
-          HTML
-          if [ -f _site/admin/index.html ]; then
-            sed -i 's|</main>|<p class="admin"><a href="admin/">admin</a></p></main>|' _site/index.html
-          fi
+          set -euo pipefail
+          admin=()
+          if [ -f _site/admin/index.html ]; then admin=(--admin-link admin/); fi
+          python3 scripts/generate_chooser.py --data-dir cv-data \
+            --out _site/index.html "${admin[@]}"
 
-      # ---- the guard that keeps both CVs out of the public site ----------- #
-      - name: Verify nothing of either CV is published in the clear
+      # ---- the guard that keeps every CV out of the public site ----------- #
+      - name: Verify nothing of any CV is published in the clear
         run: |
           set -euo pipefail
-          python3 scripts/check_site.py _site/ai      --data cv-data/ai/cv.yaml
-          python3 scripts/check_site.py _site/backend --data cv-data/backend/cv.yaml
+          data_args=()
+          for site in $SITES; do
+            python3 scripts/check_site.py "_site/$site" --data "cv-data/$site/cv.yaml"
+            data_args+=(--data "cv-data/$site/cv.yaml")
+          done
           if [ -f _site/admin/index.html ]; then
-            python3 scripts/check_site.py _site/admin \
-              --data cv-data/ai/cv.yaml --data cv-data/backend/cv.yaml
+            python3 scripts/check_site.py _site/admin "${data_args[@]}"
           fi
           # The root is a chooser and /admin/ holds no CV text, but the scan still
-          # proves neither CV leaks anywhere below them.
-          python3 scripts/check_site.py _site --allow-plain-index \
-            --data cv-data/ai/cv.yaml --data cv-data/backend/cv.yaml
+          # proves no CV leaks anywhere below them.
+          python3 scripts/check_site.py _site --allow-plain-index "${data_args[@]}"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

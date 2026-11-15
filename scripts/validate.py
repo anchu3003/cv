@@ -71,7 +71,7 @@ PROJECT_KEYS = ("name", "role", "dates", "description", "technologies_tools",
                 "responsibilities", "achievements", "link_label", "link_url")
 META_KEYS = ("name", "role", "location", "phone", "phone_link", "email",
              "linkedin_label", "linkedin_url", "github_label", "github_url",
-             "site_url",
+             "site_url", "site_label", "site_summary",
              "page_title", "description", "pdf_title", "pdf_keywords",
              "pdf_download_name", "noindex")
 THEME_KEYS = tuple(generate.CSS_VARS.values())
@@ -406,6 +406,9 @@ def normalise_html(text: str) -> str:
 WEB_ONLY = {"meta.site_url", "meta.page_title", "meta.description",
             "meta.pdf_download_name"}
 PDF_ONLY = {"meta.pdf_title", "meta.pdf_keywords"}
+# Values that only exist on the site chooser (scripts/generate_chooser.py), which
+# is neither this CV's page nor its PDF.
+CHOOSER_ONLY = {"meta.site_label", "meta.site_summary"}
 # (SKIP_PREFIXES - the design-token prefixes - is defined with the lint above.)
 
 tex_all = normalise("\n".join(
@@ -419,6 +422,8 @@ if os.path.isfile(html_path):
 checked = 0
 for path, token in walk(data or {}):
     if path.split(".")[0] in SKIP_PREFIXES:
+        continue
+    if path in CHOOSER_ONLY:
         continue
     needle = normalise(token)
     if not needle:

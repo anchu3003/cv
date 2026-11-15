@@ -28,8 +28,9 @@ cv-private/applications.json  -> https://YOUR-USER.github.io/YOUR-REPO/admin/
 - a public fork of this repository starts empty and stays empty;
 - the only CV-related things published here are StatiCrypt-encrypted pages.
 
-`main` is the only branch. Adding a third CV = a new folder in `cv-private` plus one
-entry in the `SITES` list of `.github/workflows/build-cv.yml`.
+`main` is the only branch. Adding a third CV = a new folder with a `cv.yaml` in
+`cv-private`: the build discovers every `<site>/cv.yaml`, compiles it, publishes
+its page and adds it to the chooser — no workflow edit.
 
 `scripts/check_site.py` guards the result: it verifies every page is encrypted, that
 no `*.pdf` file was published, and that no string from **either** `cv.yaml` appears
@@ -418,8 +419,9 @@ Common tasks:
 - **Rename the file the browser saves** → `meta.pdf_download_name`
   (e.g. `Firstname_Lastname_CV.pdf`).
 - **A variant for another role** → add another folder in the data repository
-  (`devops/cv.yaml`) and add `devops` to the `SITES` list of
-  `.github/workflows/build-cv.yml`; locally `make pdf DATA=../cv-private/devops/cv.yaml`.
+  (`devops/cv.yaml`), push, and CI discovers it: `/cv/devops/` is built, added to
+  the chooser (set `meta.site_label` / `meta.site_summary`) and recorded in
+  `cv-history/`; locally `make pdf DATA=../cv-private/devops/cv.yaml`.
 
 ## 🎨 Changing the look
 

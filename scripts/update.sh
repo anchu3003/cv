@@ -27,7 +27,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/update.sh [options]
 
-  --site ai|backend    which CV to edit (default: $CV_SITE or "ai")
+  --site <folder>      which CV to edit (a folder of the data repo; default ai)
   --data PATH          edit that file instead of ../cv-private/<site>/cv.yaml
   --no-edit            do not open $EDITOR (use the YAML as it is)
   --commit             commit the change in the DATA repository

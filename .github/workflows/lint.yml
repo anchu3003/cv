@@ -45,19 +45,16 @@ jobs:
         run: |
           set -euo pipefail
           found=0
-          for site in ai backend; do
-            source="cv-data/$site/cv.yaml"
-            if [ ! -f "$source" ]; then
-              echo "::warning title=No $site CV::cv-data/$site/cv.yaml is missing in the data repository - skipped."
-              continue
-            fi
+          for source in cv-data/*/cv.yaml; do
+            [ -f "$source" ] || continue
+            site=$(basename "$(dirname "$source")")
             echo "== $site =="
             python scripts/generate.py --data "$source"
             python scripts/validate.py --data "$source"
-            found=1
+            found=$((found + 1))
           done
           if [ "$found" -eq 0 ]; then
-            echo "::error title=No CV sources::The data repository carries no ai/cv.yaml or backend/cv.yaml."
+            echo "::error title=No CV sources::The data repository carries no <site>/cv.yaml."
             exit 1
           fi
 
@@ -66,7 +63,9 @@ jobs:
       # keys, so this self-test never carries CV content.
       - name: Self-test the validator (fault injection)
         if: env.CV_DATA_READY == 'true'
-        run: python scripts/test_validate.py --data cv-data/ai/cv.yaml
+        run: |
+          set -euo pipefail
+          python scripts/test_validate.py --data "$(ls cv-data/*/cv.yaml | head -1)"
 
   spellcheck:
     runs-on: ubuntu-latest

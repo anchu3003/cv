@@ -91,6 +91,27 @@ def load_needles(paths: list[str]) -> list[str]:
     return sorted(needles)
 
 
+def chooser_strings(paths: list[str]) -> set[str]:
+    """Text the chooser page prints on purpose.
+
+    `scripts/generate_chooser.py` publishes `meta.name`, `meta.site_label` and
+    `meta.site_summary` in the clear, so a sentence that also appears somewhere in
+    the CV body is public by design - reporting it as a leak would be a false
+    alarm. Everything else stays a needle.
+    """
+    import yaml
+
+    public: set[str] = set()
+    for path in paths:
+        with open(path, encoding="utf-8") as handle:
+            meta = (yaml.safe_load(handle) or {}).get("meta") or {}
+        for key in ("name", "site_label", "site_summary"):
+            value = generate.clean(str(meta.get(key) or ""))
+            if value:
+                public.add(value)
+    return public
+
+
 def fingerprint(text: str) -> str:
     """Name a leaked string without printing it.
 
@@ -153,6 +174,10 @@ def main(argv=None) -> int:
 
     needles = (load_needles(data_paths) if data_paths
                else build_needles(generate.load_data()))
+    if data_paths:
+        # Strings the site chooser shows on purpose never count as a leak.
+        published = chooser_strings(data_paths)
+        needles = [needle for needle in needles if needle not in published]
     problems = []
 
     index = site / "index.html"

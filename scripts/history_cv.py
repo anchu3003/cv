@@ -3,8 +3,13 @@ r"""Record built CV PDFs as plain snapshots in the PRIVATE data repository.
 
     python scripts/history_cv.py add --root ../cv-private/cv-history \
         --site ai --pdf build/ai/src/cv.pdf --version ai@1a2b3c4 --pages 3
+    python scripts/history_cv.py latest --root ../cv-private/cv-history --site ai
     python scripts/history_cv.py prune --root ../cv-private/cv-history --keep 20
     python scripts/history_cv.py list  --root ../cv-private/cv-history
+
+`latest` prints the revision the newest snapshot of a site was rendered from, so
+CI can skip a site whose `cv.yaml` did not change since (one snapshot per change,
+not one per build).
 
 Why here and not next to the site: a PDF is not encrypted, so it cannot be
 published - a static host serves every file to anyone who asks. The private
@@ -27,11 +32,22 @@ import datetime
 import hashlib
 import json
 import pathlib
+import re
 import shutil
 import sys
 
 SCHEMA = 1
-SITES = ("ai", "backend")
+# A site is a directory under cv-history/ and a page under the site root, so the
+# name has to stay a single, boring path segment.
+SITE_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def site_slug(value: str) -> str:
+    """argparse type: reject anything that is not a plain site folder name."""
+    if not SITE_RE.match(value):
+        raise argparse.ArgumentTypeError(
+            f"invalid site name {value!r} (lowercase letters, digits and dashes)")
+    return value
 
 
 def short(version: str) -> str:
@@ -177,12 +193,22 @@ def show(args) -> int:
     return 0
 
 
+def latest(args) -> int:
+    """Revision the newest snapshot of one site was rendered from (nothing when
+    the site has no snapshot yet)."""
+    for entry in read_index(pathlib.Path(args.root)):      # newest first
+        if entry.get("site") == args.site:
+            print(str(entry.get("version", "")).split("@")[-1])
+            return 0
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Record CV PDFs in the data repository.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_add = sub.add_parser("add", help="record one built PDF")
-    p_add.add_argument("--site", required=True, choices=SITES)
+    p_add.add_argument("--site", required=True, type=site_slug)
     p_add.add_argument("--pdf", required=True)
     p_add.add_argument("--version", required=True,
                        help="site@<short commit>, e.g. ai@1a2b3c4")
@@ -202,6 +228,12 @@ def main(argv=None) -> int:
     p_list = sub.add_parser("list", help="show the recorded snapshots")
     p_list.add_argument("--root", required=True)
     p_list.set_defaults(func=show)
+
+    p_latest = sub.add_parser("latest",
+                              help="revision the newest snapshot of a site came from")
+    p_latest.add_argument("--root", required=True)
+    p_latest.add_argument("--site", required=True, type=site_slug)
+    p_latest.set_defaults(func=latest)
 
     args = parser.parse_args(argv)
     return args.func(args)
